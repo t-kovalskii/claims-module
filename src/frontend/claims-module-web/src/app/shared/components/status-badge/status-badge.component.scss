@@ -1,0 +1,38 @@
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+
+  &--grey {
+    background-color: #757575;
+  }
+
+  &--blue {
+    background-color: #1976d2;
+  }
+
+  &--orange {
+    background-color: #ef6c00;
+  }
+
+  &--purple {
+    background-color: #7b1fa2;
+  }
+
+  &--green {
+    background-color: #2e7d32;
+  }
+
+  &--amber {
+    background-color: #f9a825;
+    color: #212121;
+  }
+
+  &--dark-grey {
+    background-color: #424242;
+  }
+}

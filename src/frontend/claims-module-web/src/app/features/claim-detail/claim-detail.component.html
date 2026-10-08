@@ -1,0 +1,161 @@
+<div class="detail-page">
+  @if (isLoadingClaim()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (claim(); as claim) {
+    <div class="detail-header">
+      <div class="header-row">
+        <h1>
+          {{ claim.claimNumber }}
+          <button mat-icon-button type="button" (click)="copyClaimNumber(claim.claimNumber)" matTooltip="Copy claim number">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </h1>
+        <app-status-badge [status]="claim.status" />
+      </div>
+
+      <div class="header-meta">
+        <span><strong>Policy:</strong> {{ claim.policyNumber ?? 'No policy linked' }} ({{ claim.clientName }})</span>
+        <span><strong>Loss date:</strong> {{ claim.lossEvent.lossDate | date: 'mediumDate' }}</span>
+        <span><strong>Cause of loss:</strong> {{ claim.lossEvent.causeOfLossName }}</span>
+        <span><strong>Handler:</strong> {{ claim.assignedHandlerUserId ?? 'Unassigned' }}</span>
+      </div>
+    </div>
+
+    <mat-tab-group>
+      <mat-tab label="Overview">
+        <div class="tab-content">
+          <h3>Loss Event</h3>
+          <dl class="detail-list">
+            <dt>Loss date</dt>
+            <dd>{{ claim.lossEvent.lossDate | date: 'medium' }}</dd>
+            <dt>Description</dt>
+            <dd>{{ claim.lossEvent.lossDescription }}</dd>
+            <dt>Location</dt>
+            <dd>{{ claim.lossEvent.lossLocation ?? '—' }}</dd>
+            <dt>Cause of loss</dt>
+            <dd>{{ claim.lossEvent.causeOfLossName }} ({{ claim.lossEvent.causeOfLossCode }})</dd>
+            <dt>Estimated loss amount</dt>
+            <dd>{{ claim.lossEvent.estimatedLossAmount != null ? (claim.lossEvent.estimatedLossAmount | currency) : '—' }}</dd>
+            <dt>Police report number</dt>
+            <dd>{{ claim.lossEvent.policeReportNumber ?? '—' }}</dd>
+          </dl>
+
+          <h3>Parties ({{ claim.parties.length }})</h3>
+          @if (claim.parties.length === 0) {
+            <p>No parties recorded.</p>
+          } @else {
+            <table class="simple-table">
+              <thead>
+                <tr>
+                  <th>Role</th>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (party of claim.parties; track party.id) {
+                  <tr>
+                    <td>{{ party.role }}</td>
+                    <td>{{ party.partyType }}</td>
+                    <td>{{ partyDisplayName(party) }}</td>
+                    <td>{{ party.email ?? '—' }}</td>
+                    <td>{{ party.phone ?? '—' }}</td>
+                    <td>{{ party.isActive ? 'Active' : 'Inactive' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+
+          <h3>Risk Objects ({{ claim.riskObjects.length }})</h3>
+          @if (claim.riskObjects.length === 0) {
+            <p>No risk objects recorded.</p>
+          } @else {
+            <table class="simple-table">
+              <thead>
+                <tr>
+                  <th>Asset type</th>
+                  <th>Description</th>
+                  <th>Damage</th>
+                  <th>Reference</th>
+                  <th>Primary</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (riskObject of claim.riskObjects; track riskObject.id) {
+                  <tr>
+                    <td>{{ riskObject.assetType }}</td>
+                    <td>{{ riskObject.assetDescription }}</td>
+                    <td>{{ riskObject.damageDescription ?? '—' }}</td>
+                    <td>{{ riskObject.assetReference ?? '—' }}</td>
+                    <td>{{ riskObject.isPrimary ? 'Yes' : 'No' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Reserves">
+        <div class="tab-content">
+          <!-- Placeholder seam for Ticket 07/08: claim.reserves is always [] until reserve
+               management lands. Replace this block with the real reserve summary cards +
+               transaction history table once that DTO exists. -->
+          <p class="placeholder-note">
+            Reserve management is not yet implemented (Ticket 07/08). This claim currently has
+            {{ claim.reserves.length }} reserve component(s) on record.
+          </p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Documents">
+        <div class="tab-content">
+          <!-- Placeholder seam for Ticket 10: claim.documents is always [] until document
+               upload/download lands. Replace this block with the real document list + upload
+               control once that DTO exists. -->
+          <p class="placeholder-note">
+            Document upload/download is not yet implemented (Ticket 10). This claim currently has
+            {{ claim.documents.length }} document(s) on record.
+          </p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Audit Log">
+        <div class="tab-content">
+          @if (isLoadingAuditLog()) {
+            <mat-progress-bar mode="indeterminate" />
+          } @else if (auditLog().length === 0) {
+            <p>No audit entries recorded.</p>
+          } @else {
+            <table class="simple-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Event</th>
+                  <th>Description</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of auditLog(); track entry.id) {
+                  <tr>
+                    <td>{{ entry.createdAt | date: 'medium' }}</td>
+                    <td>{{ entry.eventType }}</td>
+                    <td>{{ entry.description }}</td>
+                    <td>{{ entry.createdByUserId ?? '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  }
+</div>

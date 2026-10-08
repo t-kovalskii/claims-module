@@ -1,0 +1,317 @@
+<div class="wizard-page">
+  <h1>Log New Claim</h1>
+
+  @if (isLoadingReferenceData()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  <mat-stepper linear #stepper>
+    <mat-step [stepControl]="step1" label="Policy &amp; Loss Details">
+      <form [formGroup]="step1" class="step-form">
+        <mat-slide-toggle formControlName="unknownPolicy" (change)="onUnknownPolicyToggle($event.checked)">
+          I don't know the policy — proceed without linking one
+        </mat-slide-toggle>
+
+        @if (!step1.value.unknownPolicy) {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Policy search (number or client name)</mat-label>
+            <input
+              matInput
+              [formControl]="policySearchControl"
+              [matAutocomplete]="policyAuto"
+              placeholder="Start typing a policy number or client name…"
+            />
+            @if (isSearchingPolicies()) {
+              <mat-spinner matSuffix diameter="18" />
+            }
+            <mat-autocomplete #policyAuto="matAutocomplete" [displayWith]="displayPolicy" (optionSelected)="selectPolicy($event.option.value)">
+              @for (policy of policyOptions(); track policy.id) {
+                <mat-option [value]="policy">{{ policy.policyNumber }} — {{ policy.clientName }}</mat-option>
+              }
+            </mat-autocomplete>
+          </mat-form-field>
+
+          @if (selectedPolicy(); as policy) {
+            <div class="policy-card">
+              <div>
+                <strong>{{ policy.policyNumber }}</strong> — {{ policy.clientName }}
+                <span class="in-force-badge" [class.in-force]="policyInForceStatus === 'in-force'" [class.out-of-force]="policyInForceStatus === 'out-of-force'">
+                  @if (policyInForceStatus === 'in-force') {
+                    In force
+                  } @else if (policyInForceStatus === 'out-of-force') {
+                    Outside effective period
+                  } @else {
+                    Set a loss date to check
+                  }
+                </span>
+              </div>
+              <div class="policy-meta">
+                Effective {{ policy.effectiveDate | date: 'mediumDate' }} – {{ policy.expirationDate | date: 'mediumDate' }}
+                @if (policy.coverageTypes.length > 0) {
+                  &middot; Coverages: {{ policy.coverageTypes.join(', ') }}
+                }
+              </div>
+              <button mat-button type="button" (click)="clearPolicy()">Change policy</button>
+            </div>
+          }
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Loss date</mat-label>
+          <input matInput type="date" formControlName="lossDate" />
+          @if (step1.get('lossDate')?.hasError('required') && step1.get('lossDate')?.touched) {
+            <mat-error>Loss date is required.</mat-error>
+          }
+          @if (step1.get('lossDate')?.hasError('futureDate')) {
+            <mat-error>Loss date cannot be in the future.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Cause of loss</mat-label>
+          <mat-select formControlName="causeOfLossCodeId">
+            @for (code of causeOfLossCodes(); track code.id) {
+              <mat-option [value]="code.id">{{ code.name }}</mat-option>
+            }
+          </mat-select>
+          @if (step1.get('causeOfLossCodeId')?.hasError('required') && step1.get('causeOfLossCodeId')?.touched) {
+            <mat-error>Cause of loss is required.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Loss description</mat-label>
+          <textarea matInput rows="3" formControlName="lossDescription"></textarea>
+          <mat-hint align="end">{{ lossDescriptionLength }} / 20 min characters</mat-hint>
+          @if (step1.get('lossDescription')?.hasError('required') && step1.get('lossDescription')?.touched) {
+            <mat-error>Loss description is required.</mat-error>
+          }
+          @if (step1.get('lossDescription')?.hasError('minlength')) {
+            <mat-error>Loss description must be at least 20 characters.</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Loss location</mat-label>
+          <input matInput formControlName="lossLocation" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Estimated loss amount</mat-label>
+          <input matInput type="number" formControlName="estimatedLossAmount" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Police report number</mat-label>
+          <input matInput formControlName="policeReportNumber" />
+        </mat-form-field>
+
+        <div class="step-actions">
+          <button mat-flat-button color="primary" type="button" matStepperNext [disabled]="step1.invalid">Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <mat-step [stepControl]="step2" label="Claimant &amp; Party Details">
+      <div class="step-form">
+        <h3>Parties</h3>
+        @if (!hasClaimant) {
+          <div class="inline-warning">At least one Claimant is required before you can continue.</div>
+        }
+
+        @for (party of parties.controls; track party; let i = $index) {
+          <mat-card [formGroup]="partyGroup(i)" class="item-card">
+            <button mat-icon-button type="button" class="remove-button" (click)="removeParty(i)" [disabled]="parties.length === 1" matTooltip="Remove party">
+              <mat-icon>close</mat-icon>
+            </button>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Role</mat-label>
+              <mat-select formControlName="role">
+                @for (role of partyRoles; track role) {
+                  <mat-option [value]="role">{{ role }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Party type</mat-label>
+              <mat-select formControlName="partyType">
+                @for (type of partyTypes; track type) {
+                  <mat-option [value]="type">{{ type }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            @if (partyGroup(i).get('partyType')?.value === 'Company') {
+              <mat-form-field appearance="outline">
+                <mat-label>Company name</mat-label>
+                <input matInput formControlName="companyName" />
+              </mat-form-field>
+            } @else {
+              <mat-form-field appearance="outline">
+                <mat-label>First name</mat-label>
+                <input matInput formControlName="firstName" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Last name</mat-label>
+                <input matInput formControlName="lastName" />
+              </mat-form-field>
+            }
+
+            @if (partyGroup(i).hasError('nameRequired') || partyGroup(i).hasError('companyNameRequired')) {
+              <div class="inline-warning">A name is required for this party.</div>
+            }
+
+            <mat-form-field appearance="outline">
+              <mat-label>Email</mat-label>
+              <input matInput formControlName="email" />
+              @if (partyGroup(i).get('email')?.hasError('email')) {
+                <mat-error>Enter a valid email address.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Phone</mat-label>
+              <input matInput formControlName="phone" />
+            </mat-form-field>
+          </mat-card>
+        }
+
+        <button mat-stroked-button type="button" (click)="addParty()">
+          <mat-icon>add</mat-icon>
+          Add Party
+        </button>
+
+        <h3>Risk Objects</h3>
+        @if (riskObjects.length === 0) {
+          <div class="inline-advisory">Recording at least one risk object is recommended.</div>
+        }
+
+        @for (riskObject of riskObjects.controls; track riskObject; let i = $index) {
+          <mat-card [formGroup]="riskObjectGroup(i)" class="item-card">
+            <button mat-icon-button type="button" class="remove-button" (click)="removeRiskObject(i)" matTooltip="Remove risk object">
+              <mat-icon>close</mat-icon>
+            </button>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Asset type</mat-label>
+              <mat-select formControlName="assetType">
+                @for (type of assetTypes; track type) {
+                  <mat-option [value]="type">{{ type }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Asset description</mat-label>
+              <input matInput formControlName="assetDescription" />
+              @if (riskObjectGroup(i).get('assetDescription')?.hasError('required') && riskObjectGroup(i).get('assetDescription')?.touched) {
+                <mat-error>Asset description is required.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Damage description</mat-label>
+              <input matInput formControlName="damageDescription" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Reference number</mat-label>
+              <input matInput formControlName="assetReference" />
+            </mat-form-field>
+
+            <mat-checkbox formControlName="isPrimary">Primary</mat-checkbox>
+          </mat-card>
+        }
+
+        <button mat-stroked-button type="button" (click)="addRiskObject()">
+          <mat-icon>add</mat-icon>
+          Add Risk Object
+        </button>
+
+        <div class="step-actions">
+          <button mat-button type="button" matStepperPrevious>Back</button>
+          <button mat-flat-button color="primary" type="button" matStepperNext [disabled]="step2.invalid">Next</button>
+        </div>
+      </div>
+    </mat-step>
+
+    <mat-step label="Review &amp; Submit">
+      <div class="step-form">
+        @if (warnings.length > 0) {
+          <div class="warnings-box">
+            <strong>Warnings (won't block submission):</strong>
+            <ul>
+              @for (warning of warnings; track warning) {
+                <li>{{ warning }}</li>
+              }
+            </ul>
+          </div>
+        }
+
+        <h3>Policy &amp; Loss Details</h3>
+        <dl class="review-list">
+          <dt>Policy</dt>
+          <dd>
+            @if (selectedPolicy(); as policy) {
+              {{ policy.policyNumber }} — {{ policy.clientName }}
+            } @else {
+              No policy linked
+            }
+          </dd>
+          <dt>Loss date</dt>
+          <dd>{{ step1.value.lossDate | date: 'mediumDate' }}</dd>
+          <dt>Cause of loss</dt>
+          <dd>{{ causeOfLossName(step1.value.causeOfLossCodeId) }}</dd>
+          <dt>Description</dt>
+          <dd>{{ step1.value.lossDescription }}</dd>
+          <dt>Location</dt>
+          <dd>{{ step1.value.lossLocation || '—' }}</dd>
+          <dt>Estimated loss amount</dt>
+          <dd>{{ step1.value.estimatedLossAmount != null ? (step1.value.estimatedLossAmount | currency) : '—' }}</dd>
+          <dt>Police report number</dt>
+          <dd>{{ step1.value.policeReportNumber || '—' }}</dd>
+        </dl>
+
+        <h3>Parties ({{ parties.length }})</h3>
+        <ul class="review-list-items">
+          @for (party of parties.value; track $index) {
+            <li>
+              <strong>{{ party.role }}</strong> ({{ party.partyType }}) —
+              {{ party.partyType === 'Company' ? party.companyName : (party.firstName + ' ' + party.lastName) }}
+            </li>
+          }
+        </ul>
+
+        <h3>Risk Objects ({{ riskObjects.length }})</h3>
+        @if (riskObjects.length === 0) {
+          <p>None recorded.</p>
+        } @else {
+          <ul class="review-list-items">
+            @for (riskObject of riskObjects.value; track $index) {
+              <li>
+                <strong>{{ riskObject.assetType }}</strong> — {{ riskObject.assetDescription }}
+                @if (riskObject.isPrimary) {
+                  (primary)
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        <div class="step-actions">
+          <button mat-button type="button" matStepperPrevious [disabled]="isSubmitting()">Back</button>
+          <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="form.invalid || isSubmitting()">
+            @if (isSubmitting()) {
+              <mat-spinner diameter="20" />
+            } @else {
+              Create Claim
+            }
+          </button>
+        </div>
+      </div>
+    </mat-step>
+  </mat-stepper>
+</div>

@@ -20,6 +20,12 @@ export const routes: Routes = [
           )
       },
       {
+        // Must come before 'claims/:id' — otherwise the ':id' segment would swallow 'new'.
+        path: 'claims/new',
+        loadComponent: () =>
+          import('./features/fnol-wizard/fnol-wizard.component').then((m) => m.FnolWizardComponent)
+      },
+      {
         path: 'claims/:id',
         loadComponent: () =>
           import('./features/claim-detail/claim-detail.component').then((m) => m.ClaimDetailComponent)
