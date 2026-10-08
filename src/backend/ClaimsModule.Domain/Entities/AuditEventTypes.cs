@@ -8,4 +8,8 @@ namespace ClaimsModule.Domain.Entities;
 public static class AuditEventTypes
 {
     public const string ClaimCreated = "CLAIM_CREATED";
+
+    /// <summary>Ticket 09: written by the SLA monitoring job — audit-only, never a status
+    /// change (see <c>SlaBreachScanJob</c>).</summary>
+    public const string SlaBreachDetected = "SLA_BREACH_DETECTED";
 }

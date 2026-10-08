@@ -1,4 +1,5 @@
 using System.Reflection;
+using ClaimsModule.Application.Claims.Jobs;
 using ClaimsModule.Application.Common.Behaviours;
 using FluentValidation;
 using MediatR;
@@ -20,6 +21,11 @@ public static class DependencyInjection
             cfg.AddOpenBehavior(typeof(ValidationBehaviour<,>));
             cfg.AddOpenBehavior(typeof(LoggingBehaviour<,>));
         });
+
+        // Ticket 09: registered here (not in the Api project) so the job stays reachable from
+        // both Hangfire's registration in Program.cs and directly from tests, with no Hangfire
+        // dependency of its own.
+        services.AddScoped<SlaBreachScanJob>();
 
         return services;
     }

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using ClaimsModule.Api.Infrastructure;
 using ClaimsModule.Application;
+using ClaimsModule.Application.Claims.Jobs;
 using ClaimsModule.Infrastructure;
 using ClaimsModule.Persistence;
 using Hangfire;
@@ -113,6 +114,18 @@ using (var scope = app.Services.CreateScope())
     await ApplicationDbContextSeeder.SeedAsync(context);
     await ReferenceDataSeeder.SeedAsync(context);
 }
+
+// Ticket 09: the first real Hangfire job (Ticket 01 wired Hangfire with none defined yet).
+// SlaBreachScanJob itself has no Hangfire dependency — only this registration does — so it
+// stays directly callable/testable independent of Hangfire's own scheduler. Registered after
+// the migration block above (not before) so it's the second thing to touch SQL Server, not the
+// first — Hangfire's own AcquireDistributedLock needs a connection, and issuing it before the
+// app's own first proven-good connection made this call the flakiest thing at startup under the
+// test suite's parallel Testcontainers instances.
+RecurringJob.AddOrUpdate<SlaBreachScanJob>(
+    "sla-breach-scan",
+    job => job.ExecuteAsync(CancellationToken.None),
+    "*/15 * * * *"); // every 15 minutes (Cron.MinuteInterval is obsolete in this Hangfire version)
 
 app.Run();
 
