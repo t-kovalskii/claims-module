@@ -1,0 +1,18 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Editor / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+
+# Office lock files
+~$*.docx

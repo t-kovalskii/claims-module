@@ -1,0 +1,25 @@
+<mat-toolbar color="primary">
+  <span>Claims Module</span>
+  <span class="spacer"></span>
+
+  @if (authService.currentUser(); as user) {
+    <button mat-button [matMenuTriggerFor]="userMenu">
+      <mat-icon>account_circle</mat-icon>
+      {{ user.displayName }} &middot; {{ user.role }}
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <div class="menu-section-label">Switch account (test only)</div>
+      @for (account of seededAccounts; track account) {
+        <button mat-menu-item (click)="switchTo(account)">{{ account }}</button>
+      }
+      <button mat-menu-item (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Log out
+      </button>
+    </mat-menu>
+  }
+</mat-toolbar>
+
+<main class="shell-content">
+  <router-outlet />
+</main>
