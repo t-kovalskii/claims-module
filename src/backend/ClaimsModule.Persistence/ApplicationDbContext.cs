@@ -17,6 +17,12 @@ public class ApplicationDbContext(
     public DbSet<ClaimStatusTransition> ClaimStatusTransitions => Set<ClaimStatusTransition>();
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<PolicyCoverage> PolicyCoverages => Set<PolicyCoverage>();
+    public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<LossEvent> LossEvents => Set<LossEvent>();
+    public DbSet<ClaimParty> ClaimParties => Set<ClaimParty>();
+    public DbSet<ClaimRiskObject> ClaimRiskObjects => Set<ClaimRiskObject>();
+    public DbSet<ClaimAuditLog> ClaimAuditLogs => Set<ClaimAuditLog>();
+    public DbSet<ClaimNumberCounter> ClaimNumberCounters => Set<ClaimNumberCounter>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

@@ -5,6 +5,9 @@ using ClaimsModule.Application.Common.Interfaces;
 using ClaimsModule.Domain.Entities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+// Disambiguates against ClaimsModule.Domain.Entities.Claim (the FNOL aggregate root, Ticket
+// 04) — this file only ever means the JWT/ClaimsPrincipal kind.
+using Claim = System.Security.Claims.Claim;
 
 namespace ClaimsModule.Infrastructure.Auth;
 

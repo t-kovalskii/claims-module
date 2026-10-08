@@ -1,4 +1,5 @@
 using ClaimsModule.Application.Common.Exceptions;
+using ClaimsModule.Application.Common.Models;
 using FluentValidation;
 using MediatR;
 
@@ -23,16 +24,28 @@ public class ValidationBehaviour<TRequest, TResponse>(IEnumerable<IValidator<TRe
         var validationResults = await Task.WhenAll(
             validators.Select(v => v.ValidateAsync(context, cancellationToken)));
 
-        var failures = validationResults
+        var allFailures = validationResults
             .SelectMany(r => r.Errors)
             .Where(f => f is not null)
             .ToList();
 
-        if (failures.Count != 0)
+        // FRS §5.4: Warning-severity failures are surfaced to the caller but never block the
+        // request — only Error-severity (FluentValidation's default) failures do.
+        var blockingFailures = allFailures.Where(f => f.Severity == Severity.Error).ToList();
+        var warnings = allFailures.Where(f => f.Severity == Severity.Warning).ToList();
+
+        if (blockingFailures.Count != 0)
         {
-            throw new Exceptions.ValidationException(failures);
+            throw new Exceptions.ValidationException(blockingFailures);
         }
 
-        return await next();
+        var response = await next();
+
+        if (warnings.Count > 0 && response is IHasValidationWarnings responseWithWarnings)
+        {
+            responseWithWarnings.Warnings.AddRange(warnings.Select(w => w.ErrorMessage));
+        }
+
+        return response;
     }
 }

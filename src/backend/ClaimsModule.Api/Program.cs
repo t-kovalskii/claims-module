@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ClaimsModule.Api.Infrastructure;
 using ClaimsModule.Application;
 using ClaimsModule.Infrastructure;
@@ -17,7 +18,13 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddPersistence(builder.Configuration);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Ticket 04: CreateClaimCommand takes enum-valued fields (party role/type, risk-object
+    // asset type) straight in the JSON body — string values ("Claimant", "Vehicle", ...) match
+    // every other enum-shaped field this API already returns (DTOs call .ToString() on them),
+    // instead of forcing clients to know C#'s underlying ordinal values.
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 const string AngularDevClientPolicy = "AngularDevClient";
 builder.Services.AddCors(options =>

@@ -70,6 +70,8 @@ public class FakeDbContext(DbContextOptions<FakeDbContext> options) : DbContext(
     public DbSet<ClaimStatusTransition> ClaimStatusTransitions => Set<ClaimStatusTransition>();
     public DbSet<Policy> Policies => Set<Policy>();
     public DbSet<PolicyCoverage> PolicyCoverages => Set<PolicyCoverage>();
+    public DbSet<Claim> Claims => Set<Claim>();
+    public DbSet<ClaimAuditLog> ClaimAuditLogs => Set<ClaimAuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
