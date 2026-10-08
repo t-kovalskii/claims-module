@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+
+<div mat-dialog-content>
+  <p>{{ data.message }}</p>
+
+  @if (data.checklist) {
+    <ul class="checklist">
+      @for (item of data.checklist; track item.label) {
+        <li [class.satisfied]="item.satisfied" [class.unmet]="!item.satisfied">
+          <mat-icon>{{ item.satisfied ? 'check_circle' : 'cancel' }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </li>
+      }
+    </ul>
+    @if (!allConditionsSatisfied) {
+      <p class="checklist-warning">All conditions above must be satisfied before continuing.</p>
+    }
+  }
+
+  @if (data.requireReason) {
+    <mat-form-field appearance="outline" class="reason-field">
+      <mat-label>{{ data.reasonLabel ?? 'Reason' }}</mat-label>
+      <textarea matInput [formControl]="reasonControl" rows="3"></textarea>
+    </mat-form-field>
+  }
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">{{ data.cancelLabel ?? 'Cancel' }}</button>
+  <button mat-raised-button color="primary" type="button" [disabled]="!canConfirm" (click)="confirm()">
+    {{ data.confirmLabel ?? 'Confirm' }}
+  </button>
+</div>

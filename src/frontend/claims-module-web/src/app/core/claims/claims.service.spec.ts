@@ -156,4 +156,18 @@ describe('ClaimsService', () => {
 
     expect(actual).toEqual(page);
   });
+
+  it('transitionStatus() PUTs the target status and reason, returning the new status', () => {
+    const result = { id: 'claim-1', status: 'Open' as const };
+
+    let actual: { id: string; status: string } | undefined;
+    service.transitionStatus('claim-1', { targetStatus: 'Open', reason: null }).subscribe((response) => (actual = response));
+
+    const req = httpMock.expectOne(`${baseUrl}/claim-1/status`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ targetStatus: 'Open', reason: null });
+    req.flush(result);
+
+    expect(actual).toEqual(result);
+  });
 });

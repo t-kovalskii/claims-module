@@ -13,6 +13,23 @@
           </button>
         </h1>
         <app-status-badge [status]="claim.status" />
+
+        @if (validNextStatuses().length > 0) {
+          <div class="status-transition-control">
+            <button mat-stroked-button type="button" [matMenuTriggerFor]="transitionMenu" [disabled]="isTransitioning()">
+              Transition status
+              <mat-icon>arrow_drop_down</mat-icon>
+            </button>
+            <mat-menu #transitionMenu="matMenu">
+              @for (status of validNextStatuses(); track status) {
+                <button mat-menu-item type="button" (click)="requestTransition(status)">{{ status }}</button>
+              }
+            </mat-menu>
+            @if (isTransitioning()) {
+              <mat-spinner diameter="20" />
+            }
+          </div>
+        }
       </div>
 
       <div class="header-meta">

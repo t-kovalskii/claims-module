@@ -1,0 +1,35 @@
+.checklist {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &.satisfied mat-icon {
+      color: #2e7d32;
+    }
+
+    &.unmet mat-icon {
+      color: #c62828;
+    }
+  }
+}
+
+.checklist-warning {
+  color: #c62828;
+  font-size: 0.875rem;
+}
+
+.reason-field {
+  width: 100%;
+}

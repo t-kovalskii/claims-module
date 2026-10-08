@@ -10,4 +10,10 @@ namespace ClaimsModule.Application.Common.Interfaces;
 public interface IClaimRepository
 {
     void Add(Claim claim);
+
+    /// <summary>Ticket 06: the tracked-load path for commands that mutate an existing Claim
+    /// aggregate (status transitions) — includes <see cref="Claim.Parties"/> since the
+    /// transition state machine's Open/Closed conditions need them. Returns null rather than
+    /// throwing; callers map that to <see cref="Exceptions.NotFoundException"/>.</summary>
+    Task<Claim?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 }

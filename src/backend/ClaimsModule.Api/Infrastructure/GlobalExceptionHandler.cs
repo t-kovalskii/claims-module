@@ -39,6 +39,8 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
                 Type = "https://tools.ietf.org/html/rfc7235#section-3.1",
                 Detail = authenticationException.Message
             },
+            BusinessRuleViolationException businessRuleViolationException =>
+                BuildBusinessRuleProblemDetails(businessRuleViolationException),
             _ => new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -60,5 +62,26 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IE
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
         return true;
+    }
+
+    /// <summary>Ticket 06 / spec.md: business-rule violations map to 422, with
+    /// <see cref="BusinessRuleViolationException.Extensions"/> copied verbatim onto the
+    /// ProblemDetails response (e.g. the valid next statuses, or the unmet conditions list).</summary>
+    private static ProblemDetails BuildBusinessRuleProblemDetails(BusinessRuleViolationException exception)
+    {
+        var problemDetails = new ProblemDetails
+        {
+            Status = StatusCodes.Status422UnprocessableEntity,
+            Title = "A business rule prevented this operation.",
+            Type = "https://tools.ietf.org/html/rfc4918#section-11.2",
+            Detail = exception.Message
+        };
+
+        foreach (var (key, value) in exception.Extensions)
+        {
+            problemDetails.Extensions[key] = value;
+        }
+
+        return problemDetails;
     }
 }

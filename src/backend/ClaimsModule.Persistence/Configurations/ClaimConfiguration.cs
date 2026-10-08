@@ -20,6 +20,8 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
 
         builder.Property(c => c.Status).IsRequired().HasConversion<string>().HasMaxLength(30);
 
+        builder.Property(c => c.ClosureReason).HasMaxLength(1000);
+
         // Loose FK to the (non-org-scoped) simulated Policy table, per ADR-0009 — no navigation
         // back, since Claim reads never need to join out to Policy beyond the denormalised
         // PolicyNumber/ClientName captured at intake.

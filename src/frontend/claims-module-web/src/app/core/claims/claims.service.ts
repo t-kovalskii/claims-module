@@ -8,7 +8,9 @@ import {
   ClaimsFilter,
   ClaimSummary,
   CreateClaimRequest,
-  CreateClaimResult
+  CreateClaimResult,
+  TransitionClaimStatusRequest,
+  TransitionClaimStatusResult
 } from '../../shared/models/claim.model';
 import { PagedResult } from '../../shared/models/paged-result.model';
 
@@ -59,5 +61,10 @@ export class ClaimsService {
   getAuditLog(id: string, page: number, pageSize: number): Observable<PagedResult<ClaimAuditLogEntry>> {
     const params = new HttpParams().set('page', page).set('pageSize', pageSize);
     return this.http.get<PagedResult<ClaimAuditLogEntry>>(`${this.baseUrl}/${id}/audit`, { params });
+  }
+
+  /** Ticket 06: `PUT /api/claims/{id}/status` (FRS §10.1 / BR-ST-01..04). */
+  transitionStatus(id: string, request: TransitionClaimStatusRequest): Observable<TransitionClaimStatusResult> {
+    return this.http.put<TransitionClaimStatusResult>(`${this.baseUrl}/${id}/status`, request);
   }
 }

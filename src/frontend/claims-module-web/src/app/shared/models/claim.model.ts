@@ -153,3 +153,17 @@ export interface CreateClaimResult {
   status: ClaimStatus;
   warnings: string[];
 }
+
+/** `PUT /api/claims/{id}/status` body (Ticket 06, FRS §10.1 / BR-ST-01..04). `reason` is required
+ * by the backend only for Reopened (BR-ST-04) and Withdrawn (FRS §4.2) target statuses. */
+export interface TransitionClaimStatusRequest {
+  targetStatus: ClaimStatus;
+  reason: string | null;
+}
+
+/** Deliberately minimal — the claim-detail screen re-fetches full claim detail after a
+ * successful transition rather than relying on this response's shape. */
+export interface TransitionClaimStatusResult {
+  id: string;
+  status: ClaimStatus;
+}

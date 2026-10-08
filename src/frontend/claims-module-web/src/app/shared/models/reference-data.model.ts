@@ -1,3 +1,6 @@
+import { ClaimStatus } from './claim.model';
+import { UserRole } from '../../core/auth/models/authenticated-user.model';
+
 /** FRS §9 data model — mirrors the backend's `PerilCategory` enum. */
 export type PerilCategory = 'Property' | 'Auto' | 'Liability' | 'Weather' | 'Equipment' | 'Crime' | 'General';
 
@@ -10,14 +13,14 @@ export interface CauseOfLossCode {
   sortOrder: number;
 }
 
-/** `GET /api/reference/claim-statuses` (Ticket 03) — consumed by Ticket 06's transition controls;
- * not rendered by this ticket beyond being available on the service. */
+/** `GET /api/reference/claim-statuses` (Ticket 03) — consumed by Ticket 06's transition control
+ * to compute the current claim's valid next statuses and the role each one requires. */
 export interface ClaimStatusTransition {
-  toStatus: string;
-  requiredPermission: string;
+  toStatus: ClaimStatus;
+  requiredPermission: UserRole;
 }
 
 export interface ClaimStatusInfo {
-  status: string;
+  status: ClaimStatus;
   validNextTransitions: ClaimStatusTransition[];
 }

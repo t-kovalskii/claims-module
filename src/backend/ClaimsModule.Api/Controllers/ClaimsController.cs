@@ -1,4 +1,5 @@
 using ClaimsModule.Application.Claims.Commands.CreateClaim;
+using ClaimsModule.Application.Claims.Commands.TransitionClaimStatus;
 using ClaimsModule.Application.Claims.Queries.GetClaimAuditLog;
 using ClaimsModule.Application.Claims.Queries.GetClaimById;
 using ClaimsModule.Application.Claims.Queries.GetClaims;
@@ -83,8 +84,27 @@ public class ClaimsController(ISender sender) : ControllerBase
         return Ok(await sender.Send(query, cancellationToken));
     }
 
+    /// <summary>FRS §10.1 / BR-ST-01..04 (Ticket 06): transitions the claim to
+    /// <paramref name="body"/>.TargetStatus if the transition table, the caller's role, and the
+    /// target status's own conditions all allow it. Body: <c>{ targetStatus, reason? }</c>.</summary>
+    [HttpPut("{id:guid}/status")]
+    [ProducesResponseType(typeof(TransitionClaimStatusResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<ActionResult<TransitionClaimStatusResult>> TransitionStatus(
+        Guid id, TransitionStatusRequest body, CancellationToken cancellationToken)
+    {
+        var command = new TransitionClaimStatusCommand(id, body.TargetStatus, body.Reason);
+        return Ok(await sender.Send(command, cancellationToken));
+    }
+
     /// <summary>Unbound query-string ints default to 0; callers that omit page/pageSize get the
     /// same page-1/20-per-page default both list endpoints share.</summary>
     private static (int Page, int PageSize) NormalizePaging(int page, int pageSize) =>
         (page == 0 ? 1 : page, pageSize == 0 ? 20 : pageSize);
 }
+
+/// <summary>FRS §10.1's PUT /api/claims/{id}/status body shape. A route-bound id plus a body
+/// can't both be [FromBody], so this is the body-only subset of TransitionClaimStatusCommand.</summary>
+public record TransitionStatusRequest(ClaimStatus TargetStatus, string? Reason);
