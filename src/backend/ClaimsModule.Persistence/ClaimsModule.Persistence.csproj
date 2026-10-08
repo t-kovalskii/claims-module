@@ -5,6 +5,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Embedded so ReferenceDataSeeder can run it without depending on output-directory file
+         copying; the file also stays a plain, independently re-runnable .sql script on disk. -->
+    <EmbeddedResource Include="Scripts\SeedReferenceData.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

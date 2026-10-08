@@ -104,6 +104,7 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await context.Database.MigrateAsync();
     await ApplicationDbContextSeeder.SeedAsync(context);
+    await ReferenceDataSeeder.SeedAsync(context);
 }
 
 app.Run();

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ClaimsModule.Api.IntegrationTests.Fixtures;
 using ClaimsModule.Application.Auth.Commands.Login;
@@ -16,14 +15,6 @@ public class AuthenticationFlowTests(ApiWebApplicationFactory factory)
     : IClassFixture<ApiWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
-
-    private async Task<string> LoginAsAsync(string username)
-    {
-        var response = await _client.PostAsJsonAsync("/api/auth/login", new { username });
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadFromJsonAsync<LoginResult>();
-        return result!.Token;
-    }
 
     [Fact]
     public async Task Login_with_a_seeded_username_returns_200_and_a_token()
@@ -63,8 +54,7 @@ public class AuthenticationFlowTests(ApiWebApplicationFactory factory)
     [Fact]
     public async Task Protected_endpoint_with_a_valid_token_returns_the_authenticated_user()
     {
-        var token = await LoginAsAsync("handler1");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        await _client.LoginAsAsync("handler1");
 
         var response = await _client.GetAsync("/api/users/me");
 
@@ -77,8 +67,7 @@ public class AuthenticationFlowTests(ApiWebApplicationFactory factory)
     [Fact]
     public async Task Role_restricted_endpoint_rejects_a_non_manager_token()
     {
-        var token = await LoginAsAsync("handler1");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        await _client.LoginAsAsync("handler1");
 
         var response = await _client.GetAsync("/api/users/admin-only");
 
@@ -88,8 +77,7 @@ public class AuthenticationFlowTests(ApiWebApplicationFactory factory)
     [Fact]
     public async Task Role_restricted_endpoint_accepts_a_manager_token()
     {
-        var token = await LoginAsAsync("manager1");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        await _client.LoginAsAsync("manager1");
 
         var response = await _client.GetAsync("/api/users/admin-only");
 
