@@ -1,3 +1,4 @@
+using ClaimsModule.Application.Claims.Queries.GetClaimDocuments;
 using ClaimsModule.Application.Common.Exceptions;
 using ClaimsModule.Application.Common.Interfaces;
 using ClaimsModule.Domain.Entities;
@@ -83,10 +84,20 @@ public class GetClaimByIdQueryHandler(IApplicationDbContext context)
                             h.ChangeSequence,
                             h.CreatedAt))
                         .ToList())).ToList(),
-                new List<object>(),
+                new List<ClaimDocumentDto>(),
                 c.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
 
-        return claim ?? throw new NotFoundException(nameof(Domain.Entities.Claim), request.Id);
+        if (claim is null)
+        {
+            throw new NotFoundException(nameof(Domain.Entities.Claim), request.Id);
+        }
+
+        // Ticket 10: a second round trip rather than a nested projection — ClaimDocument has no
+        // navigation back from Claim (it's not part of the aggregate; see its own remarks), so
+        // there's nothing for the single Select above to join against.
+        var documents = await context.GetForClaimAsync(request.Id, cancellationToken);
+
+        return claim with { Documents = documents };
     }
 }

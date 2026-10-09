@@ -1,10 +1,11 @@
+using ClaimsModule.Application.Claims.Queries.GetClaimDocuments;
 using MediatR;
 
 namespace ClaimsModule.Application.Claims.Queries.GetClaimById;
 
 /// <summary>FRS §10.1 GET /api/claims/{id}: full detail (ADR-0002: direct projection). Documents
-/// return an empty collection until Ticket 10 lands; Reserves is now a real typed list (Ticket 07,
-/// replacing the <c>List&lt;object&gt;</c> placeholder Ticket 04 left — see Ticket 04's Comments).</summary>
+/// and Reserves are now real typed lists (Tickets 10/07, replacing the original
+/// <c>List&lt;object&gt;</c> placeholders — see Ticket 04's Comments).</summary>
 public record GetClaimByIdQuery(Guid Id) : IRequest<ClaimDetailDto>;
 
 public record ClaimDetailDto(
@@ -19,7 +20,7 @@ public record ClaimDetailDto(
     List<ClaimPartyDto> Parties,
     List<ClaimRiskObjectDto> RiskObjects,
     List<ReserveComponentDto> Reserves,
-    List<object> Documents,
+    List<ClaimDocumentDto> Documents,
     DateTimeOffset CreatedAt);
 
 /// <summary>Ticket 07: one row per <c>ReserveComponent</c>. <see cref="ApprovalStatus"/> and

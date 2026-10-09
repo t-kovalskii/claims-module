@@ -3,6 +3,7 @@ using ClaimsModule.Application.Common.Interfaces;
 using ClaimsModule.Infrastructure.Auth;
 using ClaimsModule.Infrastructure.Jobs;
 using ClaimsModule.Infrastructure.Services;
+using ClaimsModule.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,12 +17,14 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.Configure<StorageSettings>(configuration.GetSection(StorageSettings.SectionName));
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IDateTime, DateTimeService>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IBackgroundJobScheduler, HangfireBackgroundJobScheduler>();
+        AddStorage(services, configuration);
 
         services
             .AddAuthentication(options =>
@@ -60,5 +63,25 @@ public static class DependencyInjection
         services.AddAuthorization();
 
         return services;
+    }
+
+    /// <summary>Ticket 10: which <see cref="IStorageService"/> gets registered is a pure
+    /// configuration switch (<c>Storage:Provider</c>) — "AzureBlob" in production, "Local" (the
+    /// default) for local development, including the fallback case where Azure Blob isn't
+    /// reachable locally.</summary>
+    private static void AddStorage(IServiceCollection services, IConfiguration configuration)
+    {
+        var provider = configuration[$"{StorageSettings.SectionName}:Provider"];
+
+        if (string.Equals(provider, "AzureBlob", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IStorageService, AzureBlobStorageService>();
+        }
+        else
+        {
+            services.AddSingleton<LocalFileStorageService>();
+            services.AddSingleton<IStorageService>(sp => sp.GetRequiredService<LocalFileStorageService>());
+            services.AddSingleton<ILocalSignedDocumentLinkService>(sp => sp.GetRequiredService<LocalFileStorageService>());
+        }
     }
 }

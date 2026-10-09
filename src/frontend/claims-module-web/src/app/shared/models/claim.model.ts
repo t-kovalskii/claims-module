@@ -130,9 +130,27 @@ export interface ReserveHistoryEntry {
   createdAt: string;
 }
 
-/** `GET /api/claims/{id}` (Ticket 04). `documents` is typed `unknown[]` — the backend DTO itself
- * types it `List<object>` as a placeholder (always `[]`) until Ticket 10 gives it a real shape.
- * `reserves` is now a real typed array (Ticket 07, replacing the `unknown[]` placeholder). */
+/** Ticket 10: one row per uploaded `ClaimDocument`, newest first. */
+export interface ClaimDocument {
+  id: string;
+  fileName: string;
+  documentType: string | null;
+  contentType: string;
+  sizeBytes: number;
+  uploadedByUserId: string | null;
+  uploadedAt: string;
+}
+
+/** `GET /api/claims/{id}/documents/{documentId}/download-url` response (Ticket 10): a
+ * short-lived (1-hour) signed URL pointing directly at the storage provider — never streamed
+ * through this API. */
+export interface ClaimDocumentDownloadUrl {
+  url: string;
+  expiresAt: string;
+}
+
+/** `GET /api/claims/{id}` (Ticket 04). `documents` and `reserves` are real typed arrays
+ * (Tickets 10/07, replacing the original `unknown[]`/`List<object>` placeholders). */
 export interface ClaimDetail {
   id: string;
   claimNumber: string;
@@ -145,7 +163,7 @@ export interface ClaimDetail {
   parties: ClaimParty[];
   riskObjects: ClaimRiskObject[];
   reserves: ReserveComponent[];
-  documents: unknown[];
+  documents: ClaimDocument[];
   createdAt: string;
 }
 

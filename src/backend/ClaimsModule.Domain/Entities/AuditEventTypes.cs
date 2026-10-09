@@ -48,4 +48,7 @@ public static class AuditEventTypes
     /// <summary>Ticket 08 / FRS §12.1: written when the GL posting job exhausts Hangfire's
     /// retries without succeeding.</summary>
     public const string GlPostingFailed = "GL_POSTING_FAILED";
+
+    /// <summary>Ticket 10: a document was uploaded and attached to the claim.</summary>
+    public const string DocumentUploaded = "DOCUMENT_UPLOADED";
 }

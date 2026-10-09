@@ -74,6 +74,7 @@ public class FakeDbContext(DbContextOptions<FakeDbContext> options) : DbContext(
     public DbSet<ClaimAuditLog> ClaimAuditLogs => Set<ClaimAuditLog>();
     public DbSet<ReserveComponent> ReserveComponents => Set<ReserveComponent>();
     public DbSet<ReserveHistory> ReserveHistory => Set<ReserveHistory>();
+    public DbSet<ClaimDocument> ClaimDocuments => Set<ClaimDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

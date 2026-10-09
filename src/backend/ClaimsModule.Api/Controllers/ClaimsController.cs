@@ -4,8 +4,11 @@ using ClaimsModule.Application.Claims.Commands.RejectReserveTransaction;
 using ClaimsModule.Application.Claims.Commands.RetractReserveTransaction;
 using ClaimsModule.Application.Claims.Commands.SubmitReserveTransaction;
 using ClaimsModule.Application.Claims.Commands.TransitionClaimStatus;
+using ClaimsModule.Application.Claims.Commands.UploadClaimDocument;
 using ClaimsModule.Application.Claims.Queries.GetClaimAuditLog;
 using ClaimsModule.Application.Claims.Queries.GetClaimById;
+using ClaimsModule.Application.Claims.Queries.GetClaimDocumentDownloadUrl;
+using ClaimsModule.Application.Claims.Queries.GetClaimDocuments;
 using ClaimsModule.Application.Claims.Queries.GetClaims;
 using ClaimsModule.Application.Common.Models;
 using ClaimsModule.Domain.Entities;
@@ -62,7 +65,7 @@ public class ClaimsController(ISender sender) : ControllerBase
         return Ok(await sender.Send(query, cancellationToken));
     }
 
-    /// <summary>FRS §10.1: full claim detail (reserves/documents are empty until Tickets 07/10).</summary>
+    /// <summary>FRS §10.1: full claim detail, including reserves and documents.</summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ClaimDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -173,6 +176,49 @@ public class ClaimsController(ISender sender) : ControllerBase
         return Ok(await sender.Send(command, cancellationToken));
     }
 
+    /// <summary>Ticket 10 / FRS §9.7: uploads a document via the configured
+    /// <c>IStorageService</c> (Azure Blob or local filesystem — a configuration switch, see
+    /// <c>DependencyInjection.AddStorage</c>). Multipart form body: <c>file</c> plus an optional
+    /// <c>documentType</c> field.</summary>
+    [HttpPost("{id:guid}/documents")]
+    [RequestSizeLimit(UploadClaimDocumentCommandValidator.MaxSizeBytes)]
+    [ProducesResponseType(typeof(UploadClaimDocumentResult), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UploadClaimDocumentResult>> UploadDocument(
+        Guid id, [FromForm] UploadDocumentRequest body, CancellationToken cancellationToken)
+    {
+        await using var stream = body.File.OpenReadStream();
+        var command = new UploadClaimDocumentCommand(
+            id, body.File.FileName, body.File.ContentType, body.File.Length, stream, body.DocumentType);
+
+        var result = await sender.Send(command, cancellationToken);
+        return CreatedAtAction(nameof(GetDocuments), new { id }, result);
+    }
+
+    /// <summary>Ticket 10: lists the documents attached to a claim, newest first.</summary>
+    [HttpGet("{id:guid}/documents")]
+    [ProducesResponseType(typeof(List<ClaimDocumentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<ClaimDocumentDto>>> GetDocuments(Guid id, CancellationToken cancellationToken)
+    {
+        return Ok(await sender.Send(new GetClaimDocumentsQuery(id), cancellationToken));
+    }
+
+    /// <summary>Ticket 10: a short-lived (1-hour) signed URL for retrieving the document
+    /// directly from the storage provider, never streamed through this API.</summary>
+    [HttpGet("{id:guid}/documents/{documentId:guid}/download-url")]
+    [ProducesResponseType(typeof(ClaimDocumentDownloadUrlDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ClaimDocumentDownloadUrlDto>> GetDocumentDownloadUrl(
+        Guid id, Guid documentId, CancellationToken cancellationToken)
+    {
+        return Ok(await sender.Send(new GetClaimDocumentDownloadUrlQuery(id, documentId), cancellationToken));
+    }
+
     /// <summary>Unbound query-string ints default to 0; callers that omit page/pageSize get the
     /// same page-1/20-per-page default both list endpoints share.</summary>
     private static (int Page, int PageSize) NormalizePaging(int page, int pageSize) =>
@@ -193,3 +239,6 @@ public record ApproveReserveRequest(bool OverrideAggregateCap);
 
 /// <summary>FRS §10.2's POST /api/claims/{id}/reserves/{txnId}/reject body shape.</summary>
 public record RejectReserveRequest(string RejectionReason);
+
+/// <summary>Ticket 10's POST /api/claims/{id}/documents multipart body shape.</summary>
+public record UploadDocumentRequest(IFormFile File, string? DocumentType);

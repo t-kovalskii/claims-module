@@ -74,9 +74,15 @@
   gap: 4px;
 }
 
-.placeholder-note {
-  color: rgba(0, 0, 0, 0.6);
-  font-style: italic;
+.document-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.document-type-field {
+  width: 260px;
 }
 
 .reserves-toolbar {

@@ -25,6 +25,7 @@ public class ApplicationDbContext(
     public DbSet<ClaimNumberCounter> ClaimNumberCounters => Set<ClaimNumberCounter>();
     public DbSet<ReserveComponent> ReserveComponents => Set<ReserveComponent>();
     public DbSet<ReserveHistory> ReserveHistory => Set<ReserveHistory>();
+    public DbSet<ClaimDocument> ClaimDocuments => Set<ClaimDocument>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

@@ -14,6 +14,8 @@ namespace ClaimsModule.Api.IntegrationTests.Fixtures;
 /// </summary>
 public class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private readonly string _localStorageRootPath = Path.Combine(Path.GetTempPath(), "claims-module-tests", Guid.NewGuid().ToString("N"));
+
     private readonly MsSqlContainer _sqlContainer = new MsSqlBuilder()
         .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
         // Even past this log line, the container's published port hasn't reliably come up yet —
@@ -30,7 +32,15 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
         await WaitForTcpConnectionAsync();
     }
 
-    public new async Task DisposeAsync() => await _sqlContainer.DisposeAsync();
+    public new async Task DisposeAsync()
+    {
+        await _sqlContainer.DisposeAsync();
+
+        if (Directory.Exists(_localStorageRootPath))
+        {
+            Directory.Delete(_localStorageRootPath, recursive: true);
+        }
+    }
 
     /// <summary>Belt-and-suspenders on top of the container's own wait strategy: retries an actual
     /// ADO.NET connection against the published port until it succeeds, since the log-line signal
@@ -68,7 +78,14 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
                 ["ConnectionStrings:ClaimsModuleDb"] = $"{_sqlContainer.GetConnectionString()};TrustServerCertificate=True",
                 ["Jwt:SecretKey"] = "integration-test-signing-key-at-least-32-bytes-long!!",
                 ["Jwt:Issuer"] = "ClaimsModule.Api.Tests",
-                ["Jwt:Audience"] = "ClaimsModule.Clients.Tests"
+                ["Jwt:Audience"] = "ClaimsModule.Clients.Tests",
+                ["Storage:Provider"] = "Local",
+                ["Storage:Local:RootPath"] = _localStorageRootPath,
+                // Tests extract the path+query from the generated URL and hit it via their own
+                // HttpClient (whose base address is the real TestServer one) rather than
+                // navigating to this literal host — see DocumentsTests' DownloadUrlPathAndQuery.
+                ["Storage:Local:PublicBaseUrl"] = "https://test-server.local",
+                ["Storage:Local:SigningKey"] = "integration-test-document-link-signing-key!!"
             });
         });
     }

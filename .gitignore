@@ -2,6 +2,7 @@
 bin/
 obj/
 *.user
+src/backend/ClaimsModule.Api/App_Data/
 
 # Node / Angular
 node_modules/

@@ -229,13 +229,64 @@
 
       <mat-tab label="Documents">
         <div class="tab-content">
-          <!-- Placeholder seam for Ticket 10: claim.documents is always [] until document
-               upload/download lands. Replace this block with the real document list + upload
-               control once that DTO exists. -->
-          <p class="placeholder-note">
-            Document upload/download is not yet implemented (Ticket 10). This claim currently has
-            {{ claim.documents.length }} document(s) on record.
-          </p>
+          <div class="document-upload">
+            <input #documentFileInput type="file" (change)="onDocumentFileSelected($event)" />
+            <mat-form-field appearance="outline" class="document-type-field">
+              <mat-label>Document type (optional)</mat-label>
+              <input matInput [value]="documentTypeInput()" (input)="onDocumentTypeInput($event)" placeholder="e.g. Photo, Police Report" />
+            </mat-form-field>
+            <button
+              mat-raised-button
+              color="primary"
+              type="button"
+              [disabled]="!selectedDocumentFile() || isUploadingDocument()"
+              (click)="uploadSelectedDocument(claim.id, documentFileInput)"
+            >
+              Upload
+            </button>
+            @if (isUploadingDocument()) {
+              <mat-spinner diameter="20" />
+            }
+          </div>
+
+          @if (claim.documents.length === 0) {
+            <p>No documents uploaded yet.</p>
+          } @else {
+            <table class="simple-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Uploaded by</th>
+                  <th>Uploaded at</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (document of claim.documents; track document.id) {
+                  <tr>
+                    <td>{{ document.fileName }}</td>
+                    <td>{{ document.documentType ?? '—' }}</td>
+                    <td>{{ formatFileSize(document.sizeBytes) }}</td>
+                    <td>{{ document.uploadedByUserId ?? '—' }}</td>
+                    <td>{{ document.uploadedAt | date: 'medium' }}</td>
+                    <td>
+                      <button
+                        mat-button
+                        type="button"
+                        color="primary"
+                        [disabled]="downloadingDocumentId() === document.id"
+                        (click)="downloadDocument(claim.id, document)"
+                      >
+                        Download
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
         </div>
       </mat-tab>
 

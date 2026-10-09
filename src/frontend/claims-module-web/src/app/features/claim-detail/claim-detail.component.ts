@@ -3,7 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, ViewChild, inject, signal, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -21,7 +23,7 @@ import {
   ConfirmDialogResult
 } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { ClaimAuditLogEntry, ClaimDetail, ClaimParty, ClaimStatus, ReserveComponentType, ReserveHistoryEntry } from '../../shared/models/claim.model';
+import { ClaimAuditLogEntry, ClaimDetail, ClaimDocument, ClaimParty, ClaimStatus, ReserveComponentType, ReserveHistoryEntry } from '../../shared/models/claim.model';
 import { ReferenceDataService } from '../../core/reference-data/reference-data.service';
 import { ClaimStatusInfo } from '../../shared/models/reference-data.model';
 import { AddReserveDialogComponent, AddReserveDialogData, AddReserveDialogResult } from './add-reserve-dialog/add-reserve-dialog.component';
@@ -38,8 +40,10 @@ import { AddReserveDialogComponent, AddReserveDialogData, AddReserveDialogResult
  *    `hasRoleAuthority`) and hidden from the original submitter for Approve (self-approval is
  *    also server-enforced, 422) — Approve retries once with the aggregate-cap override flag if
  *    the server reports the $10,000,000 cap would be breached and the caller is a Manager.
- * 2. Documents  — placeholder; `claim.documents` is always `[]` until Ticket 10 adds upload/
- *    download. Replace the placeholder block, keep the tab index.
+ * 2. Documents  — real data (Ticket 10): a file-picker upload (optional free-form document type)
+ *    plus a list of previously-uploaded documents, each with a Download action that resolves a
+ *    short-lived signed URL (`GET .../download-url`) and opens it directly — never streamed
+ *    through this app's own backend.
  * 3. Audit Log  — real data from `GET /api/claims/{id}/audit`, reverse-chronological, paginated.
  *
  * The header's status-transition control (FRS §11.3, Ticket 06) lives here, next to
@@ -55,7 +59,9 @@ import { AddReserveDialogComponent, AddReserveDialogData, AddReserveDialogResult
   imports: [
     CommonModule,
     MatButtonModule,
+    MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatMenuModule,
     MatProgressBarModule,
     MatProgressSpinnerModule,
@@ -91,6 +97,11 @@ export class ClaimDetailComponent implements OnInit {
   readonly retractingReserveHistoryId = signal<string | null>(null);
   readonly approvingReserveHistoryId = signal<string | null>(null);
   readonly rejectingReserveHistoryId = signal<string | null>(null);
+
+  readonly selectedDocumentFile = signal<File | null>(null);
+  readonly documentTypeInput = signal('');
+  readonly isUploadingDocument = signal(false);
+  readonly downloadingDocumentId = signal<string | null>(null);
 
   /** FRS §6.4's RULE: a component with a transaction already PendingApproval can't accept a
    * further submission until retracted — fed to the Add Reserve dialog so it disables those
@@ -326,6 +337,68 @@ export class ClaimDetailComponent implements OnInit {
         error: () => this.rejectingReserveHistoryId.set(null)
       });
     });
+  }
+
+  /** Ticket 10: stores the picked file for the (separate) "Upload" action — kept as two steps
+   * rather than uploading immediately on selection, so the optional document-type field has a
+   * chance to be filled in first. */
+  onDocumentFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedDocumentFile.set(input.files?.[0] ?? null);
+  }
+
+  onDocumentTypeInput(event: Event): void {
+    this.documentTypeInput.set((event.target as HTMLInputElement).value);
+  }
+
+  uploadSelectedDocument(claimId: string, fileInput: HTMLInputElement): void {
+    const file = this.selectedDocumentFile();
+    if (!file || this.isUploadingDocument()) {
+      return;
+    }
+
+    this.isUploadingDocument.set(true);
+    const documentType = this.documentTypeInput().trim() || null;
+    this.claimsService.uploadDocument(claimId, file, documentType).subscribe({
+      next: () => {
+        this.isUploadingDocument.set(false);
+        this.selectedDocumentFile.set(null);
+        this.documentTypeInput.set('');
+        fileInput.value = '';
+        this.snackBar.open(`Document "${file.name}" uploaded.`, 'Dismiss', { duration: 5000 });
+        this.loadClaim();
+        this.loadAuditLog();
+      },
+      error: () => this.isUploadingDocument.set(false)
+    });
+  }
+
+  /** Ticket 10: resolves this document's short-lived signed URL and opens it directly — the
+   * link is self-authorising (an HMAC signature locally, a real SAS token on Azure Blob), so it
+   * deliberately isn't fetched through this app's own authenticated HttpClient. */
+  downloadDocument(claimId: string, document: ClaimDocument): void {
+    if (this.downloadingDocumentId()) {
+      return;
+    }
+
+    this.downloadingDocumentId.set(document.id);
+    this.claimsService.getDocumentDownloadUrl(claimId, document.id).subscribe({
+      next: (result) => {
+        this.downloadingDocumentId.set(null);
+        window.open(result.url, '_blank');
+      },
+      error: () => this.downloadingDocumentId.set(null)
+    });
+  }
+
+  formatFileSize(sizeBytes: number): string {
+    if (sizeBytes < 1024) {
+      return `${sizeBytes} B`;
+    }
+    if (sizeBytes < 1024 * 1024) {
+      return `${(sizeBytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   private offerAggregateCapOverrideIfApplicable(error: unknown, claimId: string, reserveHistoryId: string): void {

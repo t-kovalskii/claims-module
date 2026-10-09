@@ -7,6 +7,8 @@ import {
   ApproveReserveResult,
   ClaimAuditLogEntry,
   ClaimDetail,
+  ClaimDocument,
+  ClaimDocumentDownloadUrl,
   ClaimsFilter,
   ClaimSummary,
   CreateClaimRequest,
@@ -97,5 +99,22 @@ export class ClaimsService {
    * only, with a required rejection reason. */
   rejectReserve(id: string, reserveHistoryId: string, request: RejectReserveRequest): Observable<RejectReserveResult> {
     return this.http.post<RejectReserveResult>(`${this.baseUrl}/${id}/reserves/${reserveHistoryId}/reject`, request);
+  }
+
+  /** Ticket 10: `POST /api/claims/{id}/documents` — multipart upload; `documentType` is an
+   * optional free-form category. */
+  uploadDocument(id: string, file: File, documentType: string | null): Observable<ClaimDocument> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (documentType) {
+      formData.append('documentType', documentType);
+    }
+    return this.http.post<ClaimDocument>(`${this.baseUrl}/${id}/documents`, formData);
+  }
+
+  /** Ticket 10: `GET /api/claims/{id}/documents/{documentId}/download-url` — a short-lived
+   * signed URL pointing directly at the storage provider, never streamed through this API. */
+  getDocumentDownloadUrl(id: string, documentId: string): Observable<ClaimDocumentDownloadUrl> {
+    return this.http.get<ClaimDocumentDownloadUrl>(`${this.baseUrl}/${id}/documents/${documentId}/download-url`);
   }
 }
