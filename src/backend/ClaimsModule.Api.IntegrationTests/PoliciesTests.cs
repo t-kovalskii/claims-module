@@ -11,7 +11,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// Ticket 03's simulated-policy endpoints: search and coverage lookup, seeded via the
 /// independently re-runnable SQL script (ADR-0002: direct EF projection, HTTP seam).
 /// </summary>
-public class PoliciesTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+[Collection(ApiTestCollection.Name)]
+public class PoliciesTests(ApiWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 

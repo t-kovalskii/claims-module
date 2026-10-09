@@ -11,8 +11,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// Ticket 01's acceptance criteria, exercised end-to-end: login via the real login endpoint,
 /// then call a protected endpoint with the returned token.
 /// </summary>
+[Collection(ApiTestCollection.Name)]
 public class AuthenticationFlowTests(ApiWebApplicationFactory factory)
-    : IClassFixture<ApiWebApplicationFactory>
 {
     private readonly HttpClient _client = factory.CreateClient();
 

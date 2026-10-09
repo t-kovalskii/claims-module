@@ -23,6 +23,8 @@ public class ApplicationDbContext(
     public DbSet<ClaimRiskObject> ClaimRiskObjects => Set<ClaimRiskObject>();
     public DbSet<ClaimAuditLog> ClaimAuditLogs => Set<ClaimAuditLog>();
     public DbSet<ClaimNumberCounter> ClaimNumberCounters => Set<ClaimNumberCounter>();
+    public DbSet<ReserveComponent> ReserveComponents => Set<ReserveComponent>();
+    public DbSet<ReserveHistory> ReserveHistory => Set<ReserveHistory>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

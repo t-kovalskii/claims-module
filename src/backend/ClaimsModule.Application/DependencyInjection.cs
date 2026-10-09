@@ -27,6 +27,11 @@ public static class DependencyInjection
         // dependency of its own.
         services.AddScoped<SlaBreachScanJob>();
 
+        // Ticket 08: same rationale — reachable both from Hangfire's fire-and-forget enqueue
+        // (IBackgroundJobScheduler, implemented in ClaimsModule.Infrastructure) and directly from
+        // tests exercising its own re-entrancy.
+        services.AddScoped<PostGlReserveChangeJob>();
+
         return services;
     }
 }

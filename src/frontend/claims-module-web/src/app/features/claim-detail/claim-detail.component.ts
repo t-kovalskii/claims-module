@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, ViewChild, inject, signal, computed } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
@@ -20,17 +21,23 @@ import {
   ConfirmDialogResult
 } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { ClaimAuditLogEntry, ClaimDetail, ClaimParty, ClaimStatus } from '../../shared/models/claim.model';
+import { ClaimAuditLogEntry, ClaimDetail, ClaimParty, ClaimStatus, ReserveComponentType, ReserveHistoryEntry } from '../../shared/models/claim.model';
 import { ReferenceDataService } from '../../core/reference-data/reference-data.service';
 import { ClaimStatusInfo } from '../../shared/models/reference-data.model';
+import { AddReserveDialogComponent, AddReserveDialogData, AddReserveDialogResult } from './add-reserve-dialog/add-reserve-dialog.component';
 
 /**
  * Ticket 05's claim-detail screen: a persistent header plus four tabs.
  *
  * Tab layout — documented here because Tickets 06/07/10 build directly on it:
- * 0. Overview   — loss event, parties, risk objects (this ticket, fully built).
- * 1. Reserves   — placeholder; `claim.reserves` is always `[]` until Ticket 07/08 give it a real
- *    shape and UI (open/adjust/approve). Replace the placeholder block, keep the tab index.
+ * 0. Overview   — loss event, parties, risk objects (Ticket 05, fully built).
+ * 1. Reserves   — real data (Ticket 07): one summary card per component (current amount,
+ *    approval status, pending amount) plus its full transaction history, an "Add Reserve"
+ *    dialog with a real-time authority-tier preview, and a Retract action on the submitter's own
+ *    PendingApproval rows. Approve/Reject actions (Ticket 08) are role-gated (Supervisor/Manager,
+ *    `hasRoleAuthority`) and hidden from the original submitter for Approve (self-approval is
+ *    also server-enforced, 422) — Approve retries once with the aggregate-cap override flag if
+ *    the server reports the $10,000,000 cap would be breached and the caller is a Manager.
  * 2. Documents  — placeholder; `claim.documents` is always `[]` until Ticket 10 adds upload/
  *    download. Replace the placeholder block, keep the tab index.
  * 3. Audit Log  — real data from `GET /api/claims/{id}/audit`, reverse-chronological, paginated.
@@ -79,6 +86,22 @@ export class ClaimDetailComponent implements OnInit {
 
   readonly statuses = signal<ClaimStatusInfo[]>([]);
   readonly isTransitioning = signal(false);
+
+  readonly isSubmittingReserve = signal(false);
+  readonly retractingReserveHistoryId = signal<string | null>(null);
+  readonly approvingReserveHistoryId = signal<string | null>(null);
+  readonly rejectingReserveHistoryId = signal<string | null>(null);
+
+  /** FRS §6.4's RULE: a component with a transaction already PendingApproval can't accept a
+   * further submission until retracted — fed to the Add Reserve dialog so it disables those
+   * options instead of letting the user hit the 422 blindly. */
+  readonly pendingComponentTypes = computed<ReserveComponentType[]>(() => {
+    const claim = this.claim();
+    if (!claim) {
+      return [];
+    }
+    return claim.reserves.filter((r) => r.approvalStatus === 'PendingApproval').map((r) => r.componentType);
+  });
 
   /** FRS §11.3 "Transition button": only the statuses valid from the claim's current status
    * AND permitted by the logged-in user's role (BR-ST-01's reference-data-driven permission,
@@ -155,19 +178,177 @@ export class ClaimDetailComponent implements OnInit {
     });
   }
 
-  /** FRS §4.3's closure conditions (CC-01..03 — see Ticket 06's Comments for why CC-01/02 always
-   * show satisfied today: no ReserveComponents exist yet (Ticket 07/08) and no persisted
-   * "validation issue" concept exists). Computed client-side from the already-loaded claim
-   * detail, as a preview — the server independently re-checks on submit (BR-ST-03). */
+  /** FRS §4.3's closure conditions (CC-01..03). CC-01 (no PendingApproval reserves) is now
+   * computed from real data (Ticket 07) — see Ticket 06's Comments for why CC-02 still always
+   * shows satisfied (no persisted "validation issue" concept exists). Computed client-side from
+   * the already-loaded claim detail, as a preview — the server independently re-checks on submit
+   * (BR-ST-03). */
   private buildClosureChecklist(claim: ClaimDetail): ConfirmDialogChecklistItem[] {
     return [
       {
         label: 'At least one Claimant party exists on the claim',
         satisfied: claim.parties.some((p) => p.role === 'Claimant' && p.isActive)
       },
-      { label: 'No reserve components are pending approval', satisfied: true },
+      {
+        label: 'No reserve components are pending approval',
+        satisfied: !claim.reserves.some((r) => r.approvalStatus === 'PendingApproval')
+      },
       { label: 'No unresolved Critical validation issues remain', satisfied: true }
     ];
+  }
+
+  /** Ticket 07: opens the "Add Reserve" dialog and submits on confirm. */
+  openAddReserveDialog(): void {
+    const claim = this.claim();
+    if (!claim || this.isSubmittingReserve()) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open<AddReserveDialogComponent, AddReserveDialogData, AddReserveDialogResult>(
+      AddReserveDialogComponent,
+      { width: '480px', data: { pendingComponentTypes: this.pendingComponentTypes() } }
+    );
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (!result) {
+        return;
+      }
+      this.isSubmittingReserve.set(true);
+      this.claimsService
+        .submitReserve(claim.id, {
+          componentType: result.componentType,
+          amount: result.amount,
+          changeReason: result.changeReason
+        })
+        .subscribe({
+          next: (submitted) => {
+            this.isSubmittingReserve.set(false);
+            const message =
+              submitted.approvalStatus === 'AutoApproved'
+                ? `${result.componentType} reserve of ${result.amount} auto-approved.`
+                : `${result.componentType} reserve of ${result.amount} submitted, pending approval.`;
+            this.snackBar.open(message, 'Dismiss', { duration: 5000 });
+            this.loadClaim();
+            this.loadAuditLog();
+          },
+          error: () => this.isSubmittingReserve.set(false)
+        });
+    });
+  }
+
+  /** FRS §6.4's RULE: only the original submitter may retract their own still-pending
+   * transaction — the server enforces this too (422); this just avoids showing the control to
+   * anyone else in the first place. */
+  canRetract(submittedByUserId: string | null): boolean {
+    const user = this.authService.currentUser();
+    return !!user && !!submittedByUserId && user.userId === submittedByUserId;
+  }
+
+  retractReserve(claimId: string, reserveHistoryId: string): void {
+    if (this.retractingReserveHistoryId()) {
+      return;
+    }
+    this.retractingReserveHistoryId.set(reserveHistoryId);
+    this.claimsService.retractReserve(claimId, reserveHistoryId).subscribe({
+      next: () => {
+        this.retractingReserveHistoryId.set(null);
+        this.snackBar.open('Reserve transaction retracted.', 'Dismiss', { duration: 5000 });
+        this.loadClaim();
+        this.loadAuditLog();
+      },
+      error: () => this.retractingReserveHistoryId.set(null)
+    });
+  }
+
+  /** FRS §6.3/BR-R-03: Supervisor/Manager only, and never the original submitter (the server
+   * enforces both too — this just avoids showing the control where it would just 422). */
+  canApprove(entry: ReserveHistoryEntry): boolean {
+    const user = this.authService.currentUser();
+    return !!user && hasRoleAuthority(user.role, 'Supervisor') && entry.submittedByUserId !== user.userId;
+  }
+
+  canReject(): boolean {
+    const user = this.authService.currentUser();
+    return !!user && hasRoleAuthority(user.role, 'Supervisor');
+  }
+
+  /** FRS §6.4/BR-R-05: approves without the override flag first; if the server reports the
+   * $10,000,000 aggregate cap would be breached and the caller is a Manager, offers to retry
+   * with it set rather than making the Manager know in advance that this particular approval
+   * needs it. */
+  approveReserve(claimId: string, reserveHistoryId: string, overrideAggregateCap = false): void {
+    if (this.approvingReserveHistoryId()) {
+      return;
+    }
+    this.approvingReserveHistoryId.set(reserveHistoryId);
+    this.claimsService.approveReserve(claimId, reserveHistoryId, { overrideAggregateCap }).subscribe({
+      next: () => {
+        this.approvingReserveHistoryId.set(null);
+        this.snackBar.open('Reserve transaction approved.', 'Dismiss', { duration: 5000 });
+        this.loadClaim();
+        this.loadAuditLog();
+      },
+      error: (error: unknown) => {
+        this.approvingReserveHistoryId.set(null);
+        this.offerAggregateCapOverrideIfApplicable(error, claimId, reserveHistoryId);
+      }
+    });
+  }
+
+  rejectReserve(claimId: string, reserveHistoryId: string): void {
+    if (this.rejectingReserveHistoryId()) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, ConfirmDialogResult>(ConfirmDialogComponent, {
+      width: '480px',
+      data: {
+        title: 'Reject reserve transaction',
+        message: 'Reject this pending reserve transaction? The submitter will be able to resubmit a revised amount.',
+        requireReason: true,
+        reasonLabel: 'Rejection reason',
+        confirmLabel: 'Reject'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (!result?.confirmed || !result.reason) {
+        return;
+      }
+      this.rejectingReserveHistoryId.set(reserveHistoryId);
+      this.claimsService.rejectReserve(claimId, reserveHistoryId, { rejectionReason: result.reason }).subscribe({
+        next: () => {
+          this.rejectingReserveHistoryId.set(null);
+          this.snackBar.open('Reserve transaction rejected.', 'Dismiss', { duration: 5000 });
+          this.loadClaim();
+          this.loadAuditLog();
+        },
+        error: () => this.rejectingReserveHistoryId.set(null)
+      });
+    });
+  }
+
+  private offerAggregateCapOverrideIfApplicable(error: unknown, claimId: string, reserveHistoryId: string): void {
+    const user = this.authService.currentUser();
+    const detail = error instanceof HttpErrorResponse && typeof error.error?.detail === 'string' ? error.error.detail : null;
+    if (user?.role !== 'Manager' || !detail?.includes('$10,000,000')) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open<ConfirmDialogComponent, ConfirmDialogData, ConfirmDialogResult>(ConfirmDialogComponent, {
+      width: '480px',
+      data: {
+        title: 'Approve over the aggregate cap?',
+        message: `${detail} Set the override flag and approve anyway?`,
+        confirmLabel: 'Set override and approve'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result?.confirmed) {
+        this.approveReserve(claimId, reserveHistoryId, true);
+      }
+    });
   }
 
   private submitTransition(claimId: string, targetStatus: ClaimStatus, reason: string | null): void {

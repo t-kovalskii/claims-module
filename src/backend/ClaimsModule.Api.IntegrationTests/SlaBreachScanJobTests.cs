@@ -21,7 +21,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// directly — exactly as the ticket requires, without waiting on or faking Hangfire's own
 /// 15-minute schedule.
 /// </summary>
-public class SlaBreachScanJobTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+[Collection(ApiTestCollection.Name)]
+public class SlaBreachScanJobTests(ApiWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 

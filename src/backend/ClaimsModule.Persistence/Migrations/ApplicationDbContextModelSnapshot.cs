@@ -84,6 +84,9 @@ namespace ClaimsModule.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("AggregateCapOverrideApproved")
+                        .HasColumnType("bit");
+
                     b.Property<Guid?>("AssignedHandlerUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -609,6 +612,151 @@ namespace ClaimsModule.Persistence.Migrations
                     b.ToTable("PolicyCoverages", (string)null);
                 });
 
+            modelBuilder.Entity("ClaimsModule.Domain.Entities.ReserveComponent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ComponentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset(7)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("CurrentAmount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LastModifiedAt")
+                        .HasColumnType("datetimeoffset(7)");
+
+                    b.Property<string>("LastModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimId", "ComponentType")
+                        .IsUnique();
+
+                    b.ToTable("ClaimReserveComponents", (string)null);
+                });
+
+            modelBuilder.Entity("ClaimsModule.Domain.Entities.ReserveHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("datetimeoffset(7)");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("ChangeSequence")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ClaimId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset(7)");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("NewBalance")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PostingJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PostingStatus")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("PreviousBalance")
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<DateTimeOffset?>("RejectedAt")
+                        .HasColumnType("datetimeoffset(7)");
+
+                    b.Property<Guid?>("RejectedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("ReserveComponentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TransactionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("ReserveComponentId", "ChangeSequence");
+
+                    b.ToTable("ReserveHistory", (string)null);
+                });
+
             modelBuilder.Entity("ClaimsModule.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -722,6 +870,28 @@ namespace ClaimsModule.Persistence.Migrations
                     b.Navigation("Policy");
                 });
 
+            modelBuilder.Entity("ClaimsModule.Domain.Entities.ReserveComponent", b =>
+                {
+                    b.HasOne("ClaimsModule.Domain.Entities.Claim", "Claim")
+                        .WithMany("ReserveComponents")
+                        .HasForeignKey("ClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Claim");
+                });
+
+            modelBuilder.Entity("ClaimsModule.Domain.Entities.ReserveHistory", b =>
+                {
+                    b.HasOne("ClaimsModule.Domain.Entities.ReserveComponent", "ReserveComponent")
+                        .WithMany("History")
+                        .HasForeignKey("ReserveComponentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReserveComponent");
+                });
+
             modelBuilder.Entity("ClaimsModule.Domain.Entities.User", b =>
                 {
                     b.HasOne("ClaimsModule.Domain.Entities.Organization", "Organization")
@@ -740,12 +910,19 @@ namespace ClaimsModule.Persistence.Migrations
 
                     b.Navigation("Parties");
 
+                    b.Navigation("ReserveComponents");
+
                     b.Navigation("RiskObjects");
                 });
 
             modelBuilder.Entity("ClaimsModule.Domain.Entities.Policy", b =>
                 {
                     b.Navigation("Coverages");
+                });
+
+            modelBuilder.Entity("ClaimsModule.Domain.Entities.ReserveComponent", b =>
+                {
+                    b.Navigation("History");
                 });
 #pragma warning restore 612, 618
         }

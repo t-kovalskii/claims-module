@@ -11,9 +11,11 @@ public interface IClaimRepository
 {
     void Add(Claim claim);
 
-    /// <summary>Ticket 06: the tracked-load path for commands that mutate an existing Claim
-    /// aggregate (status transitions) — includes <see cref="Claim.Parties"/> since the
-    /// transition state machine's Open/Closed conditions need them. Returns null rather than
-    /// throwing; callers map that to <see cref="Exceptions.NotFoundException"/>.</summary>
+    /// <summary>Ticket 06/07: the tracked-load path for commands that mutate an existing Claim
+    /// aggregate (status transitions, reserve submission/retraction) — includes
+    /// <see cref="Claim.Parties"/> (transition state machine conditions) and
+    /// <see cref="Claim.ReserveComponents"/> plus each component's <see cref="ReserveComponent.History"/>
+    /// (reserve commands and the Closed/PendingPayment transition conditions). Returns null rather
+    /// than throwing; callers map that to <see cref="Exceptions.NotFoundException"/>.</summary>
     Task<Claim?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 }

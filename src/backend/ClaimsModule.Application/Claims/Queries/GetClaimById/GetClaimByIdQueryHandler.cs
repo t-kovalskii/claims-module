@@ -1,5 +1,6 @@
 using ClaimsModule.Application.Common.Exceptions;
 using ClaimsModule.Application.Common.Interfaces;
+using ClaimsModule.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,7 +49,40 @@ public class GetClaimByIdQueryHandler(IApplicationDbContext context)
                     r.DamageDescription,
                     r.IsPrimary,
                     r.AssetReference)).ToList(),
-                new List<object>(),
+                c.ReserveComponents.Select(rc => new ReserveComponentDto(
+                    rc.Id,
+                    rc.ComponentType.ToString(),
+                    rc.CurrentAmount,
+                    rc.Status.ToString(),
+                    rc.History
+                        .OrderByDescending(h => h.ChangeSequence)
+                        .Select(h => (string?)h.ApprovalStatus.ToString())
+                        .FirstOrDefault(),
+                    rc.History
+                        .Where(h => h.ApprovalStatus == ReserveApprovalStatus.PendingApproval)
+                        .OrderByDescending(h => h.ChangeSequence)
+                        .Select(h => (decimal?)h.Amount)
+                        .FirstOrDefault(),
+                    rc.History
+                        .OrderByDescending(h => h.ChangeSequence)
+                        .Select(h => new ReserveHistoryDto(
+                            h.Id,
+                            h.TransactionType.ToString(),
+                            h.Amount,
+                            h.PreviousBalance,
+                            h.NewBalance,
+                            h.ApprovalStatus.ToString(),
+                            h.ChangeReason,
+                            h.PostingStatus.ToString(),
+                            h.SubmittedByUserId,
+                            h.ApprovedByUserId,
+                            h.ApprovedAt,
+                            h.RejectedByUserId,
+                            h.RejectedAt,
+                            h.RejectionReason,
+                            h.ChangeSequence,
+                            h.CreatedAt))
+                        .ToList())).ToList(),
                 new List<object>(),
                 c.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);

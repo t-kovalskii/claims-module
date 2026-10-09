@@ -1,0 +1,45 @@
+.full-width {
+  width: 100%;
+}
+
+.tier-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+
+  mat-icon {
+    font-size: 20px;
+    height: 20px;
+    width: 20px;
+  }
+
+  &.tier-auto {
+    background: rgba(46, 125, 50, 0.1);
+    color: #2e7d32;
+  }
+
+  &.tier-supervisor {
+    background: rgba(245, 124, 0, 0.1);
+    color: #f57c00;
+  }
+
+  &.tier-manager {
+    background: rgba(198, 40, 40, 0.1);
+    color: #c62828;
+  }
+}
+
+.pending-warning {
+  color: #c62828;
+  font-size: 0.9rem;
+}
+
+.field-error {
+  color: #c62828;
+  font-size: 0.75rem;
+  margin: -12px 0 16px;
+}

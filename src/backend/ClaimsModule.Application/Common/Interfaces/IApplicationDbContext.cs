@@ -14,6 +14,8 @@ public interface IApplicationDbContext
     DbSet<PolicyCoverage> PolicyCoverages { get; }
     DbSet<Claim> Claims { get; }
     DbSet<ClaimAuditLog> ClaimAuditLogs { get; }
+    DbSet<ReserveComponent> ReserveComponents { get; }
+    DbSet<ReserveHistory> ReserveHistory { get; }
 
     /// <summary>Exposed for ADR-0008's atomic claim-number counter (raw SQL) and for the
     /// explicit transaction IUnitOfWork opens around it plus the Claim aggregate insert.</summary>

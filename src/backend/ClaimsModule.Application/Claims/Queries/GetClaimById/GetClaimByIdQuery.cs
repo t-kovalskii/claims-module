@@ -2,8 +2,9 @@ using MediatR;
 
 namespace ClaimsModule.Application.Claims.Queries.GetClaimById;
 
-/// <summary>FRS §10.1 GET /api/claims/{id}: full detail (ADR-0002: direct projection). Reserves
-/// and documents return empty collections until Tickets 07/10 land.</summary>
+/// <summary>FRS §10.1 GET /api/claims/{id}: full detail (ADR-0002: direct projection). Documents
+/// return an empty collection until Ticket 10 lands; Reserves is now a real typed list (Ticket 07,
+/// replacing the <c>List&lt;object&gt;</c> placeholder Ticket 04 left — see Ticket 04's Comments).</summary>
 public record GetClaimByIdQuery(Guid Id) : IRequest<ClaimDetailDto>;
 
 public record ClaimDetailDto(
@@ -17,8 +18,42 @@ public record ClaimDetailDto(
     LossEventDto LossEvent,
     List<ClaimPartyDto> Parties,
     List<ClaimRiskObjectDto> RiskObjects,
-    List<object> Reserves,
+    List<ReserveComponentDto> Reserves,
     List<object> Documents,
+    DateTimeOffset CreatedAt);
+
+/// <summary>Ticket 07: one row per <c>ReserveComponent</c>. <see cref="ApprovalStatus"/> and
+/// <see cref="PendingAmount"/> are computed from the latest (by <c>ChangeSequence</c>) entry in
+/// <see cref="History"/> — not persisted columns on the component itself (that column,
+/// <c>ReserveComponent.Status</c>, is the FRS §9.5 Active/Closed lifecycle flag, exposed
+/// separately as <see cref="Status"/>).</summary>
+public record ReserveComponentDto(
+    Guid Id,
+    string ComponentType,
+    decimal CurrentAmount,
+    string Status,
+    string? ApprovalStatus,
+    decimal? PendingAmount,
+    List<ReserveHistoryDto> History);
+
+/// <summary>Ticket 07: one row per <c>ReserveHistory</c> transaction, reverse-chronological
+/// (highest <see cref="ChangeSequence"/> first) within its component.</summary>
+public record ReserveHistoryDto(
+    Guid Id,
+    string TransactionType,
+    decimal Amount,
+    decimal PreviousBalance,
+    decimal NewBalance,
+    string ApprovalStatus,
+    string? ChangeReason,
+    string PostingStatus,
+    Guid? SubmittedByUserId,
+    Guid? ApprovedByUserId,
+    DateTimeOffset? ApprovedAt,
+    Guid? RejectedByUserId,
+    DateTimeOffset? RejectedAt,
+    string? RejectionReason,
+    int ChangeSequence,
     DateTimeOffset CreatedAt);
 
 public record LossEventDto(

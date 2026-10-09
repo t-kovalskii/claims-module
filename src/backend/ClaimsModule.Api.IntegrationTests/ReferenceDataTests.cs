@@ -15,7 +15,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// Ticket 03's reference-data endpoints, exercised against the real SQL script seeded at app
 /// start (ADR-0002: direct EF projection, so these are HTTP-seam tests, not Claim unit tests).
 /// </summary>
-public class ReferenceDataTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+[Collection(ApiTestCollection.Name)]
+public class ReferenceDataTests(ApiWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 

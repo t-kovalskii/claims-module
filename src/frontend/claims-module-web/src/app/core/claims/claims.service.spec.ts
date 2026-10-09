@@ -1,7 +1,20 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
-import { ClaimAuditLogEntry, ClaimDetail, ClaimSummary, CreateClaimRequest, CreateClaimResult } from '../../shared/models/claim.model';
+import {
+  ApproveReserveRequest,
+  ApproveReserveResult,
+  ClaimAuditLogEntry,
+  ClaimDetail,
+  ClaimSummary,
+  CreateClaimRequest,
+  CreateClaimResult,
+  RejectReserveRequest,
+  RejectReserveResult,
+  RetractReserveResult,
+  SubmitReserveRequest,
+  SubmitReserveResult
+} from '../../shared/models/claim.model';
 import { PagedResult } from '../../shared/models/paged-result.model';
 import { ClaimsService } from './claims.service';
 
@@ -166,6 +179,80 @@ describe('ClaimsService', () => {
     const req = httpMock.expectOne(`${baseUrl}/claim-1/status`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ targetStatus: 'Open', reason: null });
+    req.flush(result);
+
+    expect(actual).toEqual(result);
+  });
+
+  it('submitReserve() posts the component/amount/changeReason and returns the created transaction', () => {
+    const request: SubmitReserveRequest = { componentType: 'Indemnity', amount: 5000, changeReason: 'Initial reserve' };
+    const result: SubmitReserveResult = {
+      reserveComponentId: 'reserve-1',
+      reserveHistoryId: 'history-1',
+      componentType: 'Indemnity',
+      transactionType: 'Add',
+      amount: 5000,
+      previousBalance: 0,
+      newBalance: 5000,
+      approvalStatus: 'AutoApproved',
+      currentAmount: 5000,
+      changeSequence: 1
+    };
+
+    let actual: SubmitReserveResult | undefined;
+    service.submitReserve('claim-1', request).subscribe((response) => (actual = response));
+
+    const req = httpMock.expectOne(`${baseUrl}/claim-1/reserves`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(request);
+    req.flush(result);
+
+    expect(actual).toEqual(result);
+  });
+
+  it('retractReserve() posts to the retract endpoint and returns the updated balance', () => {
+    const result: RetractReserveResult = { reserveComponentId: 'reserve-1', reserveHistoryId: 'history-1', currentAmount: 0 };
+
+    let actual: RetractReserveResult | undefined;
+    service.retractReserve('claim-1', 'history-1').subscribe((response) => (actual = response));
+
+    const req = httpMock.expectOne(`${baseUrl}/claim-1/reserves/history-1/retract`);
+    expect(req.request.method).toBe('POST');
+    req.flush(result);
+
+    expect(actual).toEqual(result);
+  });
+
+  it('approveReserve() posts the override flag and returns the updated approval status', () => {
+    const request: ApproveReserveRequest = { overrideAggregateCap: false };
+    const result: ApproveReserveResult = {
+      reserveComponentId: 'reserve-1',
+      reserveHistoryId: 'history-1',
+      approvalStatus: 'Approved',
+      currentAmount: 50000
+    };
+
+    let actual: ApproveReserveResult | undefined;
+    service.approveReserve('claim-1', 'history-1', request).subscribe((response) => (actual = response));
+
+    const req = httpMock.expectOne(`${baseUrl}/claim-1/reserves/history-1/approve`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(request);
+    req.flush(result);
+
+    expect(actual).toEqual(result);
+  });
+
+  it('rejectReserve() posts the rejection reason and returns the updated approval status', () => {
+    const request: RejectReserveRequest = { rejectionReason: 'Amount not substantiated' };
+    const result: RejectReserveResult = { reserveComponentId: 'reserve-1', reserveHistoryId: 'history-1', approvalStatus: 'Rejected' };
+
+    let actual: RejectReserveResult | undefined;
+    service.rejectReserve('claim-1', 'history-1', request).subscribe((response) => (actual = response));
+
+    const req = httpMock.expectOne(`${baseUrl}/claim-1/reserves/history-1/reject`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(request);
     req.flush(result);
 
     expect(actual).toEqual(result);

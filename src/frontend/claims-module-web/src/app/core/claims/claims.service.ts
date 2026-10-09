@@ -3,12 +3,19 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
+  ApproveReserveRequest,
+  ApproveReserveResult,
   ClaimAuditLogEntry,
   ClaimDetail,
   ClaimsFilter,
   ClaimSummary,
   CreateClaimRequest,
   CreateClaimResult,
+  RejectReserveRequest,
+  RejectReserveResult,
+  RetractReserveResult,
+  SubmitReserveRequest,
+  SubmitReserveResult,
   TransitionClaimStatusRequest,
   TransitionClaimStatusResult
 } from '../../shared/models/claim.model';
@@ -66,5 +73,29 @@ export class ClaimsService {
   /** Ticket 06: `PUT /api/claims/{id}/status` (FRS §10.1 / BR-ST-01..04). */
   transitionStatus(id: string, request: TransitionClaimStatusRequest): Observable<TransitionClaimStatusResult> {
     return this.http.put<TransitionClaimStatusResult>(`${this.baseUrl}/${id}/status`, request);
+  }
+
+  /** Ticket 07: `POST /api/claims/{id}/reserves` — opens a reserve component or submits a
+   * further transaction against an already-open one. */
+  submitReserve(id: string, request: SubmitReserveRequest): Observable<SubmitReserveResult> {
+    return this.http.post<SubmitReserveResult>(`${this.baseUrl}/${id}/reserves`, request);
+  }
+
+  /** Ticket 07: `POST /api/claims/{id}/reserves/{reserveHistoryId}/retract` — the original
+   * submitter retracts their own still-pending reserve transaction. */
+  retractReserve(id: string, reserveHistoryId: string): Observable<RetractReserveResult> {
+    return this.http.post<RetractReserveResult>(`${this.baseUrl}/${id}/reserves/${reserveHistoryId}/retract`, {});
+  }
+
+  /** Ticket 08: `POST /api/claims/{id}/reserves/{reserveHistoryId}/approve` — Supervisor/Manager
+   * only (server-enforced; the UI also hides the control per `hasRoleAuthority`). */
+  approveReserve(id: string, reserveHistoryId: string, request: ApproveReserveRequest): Observable<ApproveReserveResult> {
+    return this.http.post<ApproveReserveResult>(`${this.baseUrl}/${id}/reserves/${reserveHistoryId}/approve`, request);
+  }
+
+  /** Ticket 08: `POST /api/claims/{id}/reserves/{reserveHistoryId}/reject` — Supervisor/Manager
+   * only, with a required rejection reason. */
+  rejectReserve(id: string, reserveHistoryId: string, request: RejectReserveRequest): Observable<RejectReserveResult> {
+    return this.http.post<RejectReserveResult>(`${this.baseUrl}/${id}/reserves/${reserveHistoryId}/reject`, request);
   }
 }

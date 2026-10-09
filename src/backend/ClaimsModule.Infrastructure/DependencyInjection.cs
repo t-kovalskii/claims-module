@@ -1,6 +1,7 @@
 using System.Text;
 using ClaimsModule.Application.Common.Interfaces;
 using ClaimsModule.Infrastructure.Auth;
+using ClaimsModule.Infrastructure.Jobs;
 using ClaimsModule.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
@@ -20,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddSingleton<IDateTime, DateTimeService>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IBackgroundJobScheduler, HangfireBackgroundJobScheduler>();
 
         services
             .AddAuthentication(options =>

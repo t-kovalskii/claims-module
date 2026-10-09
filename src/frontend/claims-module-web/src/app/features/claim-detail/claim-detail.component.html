@@ -121,13 +121,109 @@
 
       <mat-tab label="Reserves">
         <div class="tab-content">
-          <!-- Placeholder seam for Ticket 07/08: claim.reserves is always [] until reserve
-               management lands. Replace this block with the real reserve summary cards +
-               transaction history table once that DTO exists. -->
-          <p class="placeholder-note">
-            Reserve management is not yet implemented (Ticket 07/08). This claim currently has
-            {{ claim.reserves.length }} reserve component(s) on record.
-          </p>
+          <div class="reserves-toolbar">
+            <button mat-raised-button color="primary" type="button" (click)="openAddReserveDialog()" [disabled]="isSubmittingReserve()">
+              Add Reserve
+            </button>
+            @if (isSubmittingReserve()) {
+              <mat-spinner diameter="20" />
+            }
+          </div>
+
+          @if (claim.reserves.length === 0) {
+            <p>No reserve components recorded yet.</p>
+          } @else {
+            <div class="reserve-cards">
+              @for (component of claim.reserves; track component.id) {
+                <div class="reserve-card">
+                  <div class="reserve-card-header">
+                    <h4>{{ component.componentType }}</h4>
+                    <span class="approval-badge" [class]="'approval-badge--' + (component.approvalStatus ?? 'none')">
+                      {{ component.approvalStatus ?? '—' }}
+                    </span>
+                  </div>
+                  <dl class="reserve-card-amounts">
+                    <dt>Current balance</dt>
+                    <dd>{{ component.currentAmount | currency }}</dd>
+                    @if (component.pendingAmount != null) {
+                      <dt>Pending amount</dt>
+                      <dd class="pending-amount">{{ component.pendingAmount | currency }}</dd>
+                    }
+                  </dl>
+
+                  <h5>Transaction history</h5>
+                  <table class="simple-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Previous</th>
+                        <th>New</th>
+                        <th>Status</th>
+                        <th>Posting</th>
+                        <th>Reason</th>
+                        <th>Submitted by</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (entry of component.history; track entry.id) {
+                        <tr>
+                          <td>{{ entry.createdAt | date: 'medium' }}</td>
+                          <td>{{ entry.transactionType }}</td>
+                          <td [class.amount-increase]="entry.amount > 0" [class.amount-decrease]="entry.amount < 0">
+                            {{ entry.amount | currency }}
+                          </td>
+                          <td>{{ entry.previousBalance | currency }}</td>
+                          <td>{{ entry.newBalance | currency }}</td>
+                          <td>{{ entry.approvalStatus }}</td>
+                          <td>{{ entry.postingStatus }}</td>
+                          <td>{{ entry.changeReason ?? '—' }}</td>
+                          <td>{{ entry.submittedByUserId ?? '—' }}</td>
+                          <td class="reserve-row-actions">
+                            @if (entry.approvalStatus === 'PendingApproval' && canRetract(entry.submittedByUserId)) {
+                              <button
+                                mat-button
+                                type="button"
+                                color="warn"
+                                [disabled]="retractingReserveHistoryId() === entry.id"
+                                (click)="retractReserve(claim.id, entry.id)"
+                              >
+                                Retract
+                              </button>
+                            }
+                            @if (entry.approvalStatus === 'PendingApproval' && canApprove(entry)) {
+                              <button
+                                mat-button
+                                type="button"
+                                color="primary"
+                                [disabled]="approvingReserveHistoryId() === entry.id"
+                                (click)="approveReserve(claim.id, entry.id)"
+                              >
+                                Approve
+                              </button>
+                            }
+                            @if (entry.approvalStatus === 'PendingApproval' && canReject()) {
+                              <button
+                                mat-button
+                                type="button"
+                                color="warn"
+                                [disabled]="rejectingReserveHistoryId() === entry.id"
+                                (click)="rejectReserve(claim.id, entry.id)"
+                              >
+                                Reject
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
         </div>
       </mat-tab>
 

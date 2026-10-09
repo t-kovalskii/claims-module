@@ -45,5 +45,10 @@ public class ClaimConfiguration : IEntityTypeConfiguration<Claim>
             .WithOne(r => r.Claim)
             .HasForeignKey(r => r.ClaimId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(c => c.ReserveComponents)
+            .WithOne(rc => rc.Claim)
+            .HasForeignKey(rc => rc.ClaimId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

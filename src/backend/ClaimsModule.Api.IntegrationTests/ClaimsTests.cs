@@ -16,7 +16,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// Ticket 04's FNOL intake backend: create/list/view claims against the real SQL Server test
 /// container (ADR-0001 repository+UoW path for creation, ADR-0002 direct-projection reads).
 /// </summary>
-public class ClaimsTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+[Collection(ApiTestCollection.Name)]
+public class ClaimsTests(ApiWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 

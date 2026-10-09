@@ -1,5 +1,5 @@
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, flush, tick } from '@angular/core/testing';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ActivatedRoute } from '@angular/router';
@@ -166,7 +166,7 @@ describe('ClaimDetailComponent', () => {
       expect(fixture.componentInstance.auditLog()[0].eventType).toBe('ClaimCreated');
     });
 
-    it('shows empty-state placeholders for the not-yet-implemented Reserves/Documents tabs', fakeAsync(() => {
+    it('shows an empty-state on the Reserves tab and the not-yet-implemented Documents placeholder', fakeAsync(() => {
       fixture.detectChanges();
       flushInitialRequests();
       fixture.detectChanges();
@@ -181,7 +181,8 @@ describe('ClaimDetailComponent', () => {
       fixture.detectChanges();
       tick();
       fixture.detectChanges();
-      expect(fixture.nativeElement.textContent).toContain('Reserve management is not yet implemented');
+      expect(fixture.nativeElement.textContent).toContain('No reserve components recorded yet.');
+      expect(fixture.nativeElement.textContent).toContain('Add Reserve');
 
       tabGroup!.selectedIndex = 2; // Documents
       fixture.detectChanges();
@@ -313,6 +314,342 @@ describe('ClaimDetailComponent', () => {
 
       const confirmButton = overlayContainer.getContainerElement().querySelector('button[mat-raised-button]') as HTMLButtonElement;
       expect(confirmButton.disabled).toBe(false);
+    });
+  });
+
+  describe('Ticket 07: Reserves tab', () => {
+    afterEach(() => localStorage.removeItem(STORAGE_KEY));
+
+    const detailWithReserves: ClaimDetail = {
+      ...detail,
+      reserves: [
+        {
+          id: 'reserve-1',
+          componentType: 'Indemnity',
+          currentAmount: 5000,
+          status: 'Active',
+          approvalStatus: 'AutoApproved',
+          pendingAmount: null,
+          history: [
+            {
+              id: 'history-1',
+              transactionType: 'Add',
+              amount: 5000,
+              previousBalance: 0,
+              newBalance: 5000,
+              approvalStatus: 'AutoApproved',
+              changeReason: 'Initial reserve',
+              postingStatus: 'Pending',
+              submittedByUserId: 'user-1',
+              approvedByUserId: null,
+              approvedAt: null,
+              rejectedByUserId: null,
+              rejectedAt: null,
+              rejectionReason: null,
+              changeSequence: 1,
+              createdAt: '2026-01-05T00:00:00Z'
+            }
+          ]
+        },
+        {
+          id: 'reserve-2',
+          componentType: 'Expense',
+          currentAmount: 0,
+          status: 'Active',
+          approvalStatus: 'PendingApproval',
+          pendingAmount: 50000,
+          history: [
+            {
+              id: 'history-2',
+              transactionType: 'Add',
+              amount: 50000,
+              previousBalance: 0,
+              newBalance: 50000,
+              approvalStatus: 'PendingApproval',
+              changeReason: 'Big expense',
+              postingStatus: 'Pending',
+              submittedByUserId: 'someone-else',
+              approvedByUserId: null,
+              approvedAt: null,
+              rejectedByUserId: null,
+              rejectedAt: null,
+              rejectionReason: null,
+              changeSequence: 1,
+              createdAt: '2026-01-05T00:00:00Z'
+            }
+          ]
+        }
+      ]
+    };
+
+    function openReservesTab(): void {
+      const tabGroup = fixture.componentInstance.tabGroup;
+      tabGroup!.selectedIndex = 1;
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+    }
+
+    it('renders a summary card per component with its current amount, approval status, and pending amount', fakeAsync(() => {
+      seedUser('Handler');
+      setup();
+      tick();
+      fixture.detectChanges();
+      flushInitialRequests(detailWithReserves);
+      fixture.detectChanges();
+
+      openReservesTab();
+
+      const text = fixture.nativeElement.textContent;
+      expect(text).toContain('Indemnity');
+      expect(text).toContain('AutoApproved');
+      expect(text).toContain('Expense');
+      expect(text).toContain('PendingApproval');
+      expect(text).toContain('Initial reserve');
+      expect(text).toContain('Big expense');
+    }));
+
+    it('shows the Retract action only on the current user’s own PendingApproval transaction', fakeAsync(() => {
+      seedUser('Handler'); // userId: 'user-1', matching history-1's submitter but not history-2's
+      setup();
+      tick();
+      fixture.detectChanges();
+      flushInitialRequests(detailWithReserves);
+      fixture.detectChanges();
+
+      openReservesTab();
+
+      const retractButtons = Array.from(fixture.nativeElement.querySelectorAll('button')).filter(
+        (b) => (b as HTMLButtonElement).textContent?.trim() === 'Retract'
+      );
+      // history-1 is AutoApproved (no Retract regardless of owner); history-2 is PendingApproval
+      // but submitted by someone else — so neither row shows a Retract button for this user.
+      expect(retractButtons.length).toBe(0);
+    }));
+
+    it('shows the Retract action for the submitter’s own PendingApproval transaction and submits the retraction', fakeAsync(() => {
+      seedUser('Handler');
+      setup();
+      tick();
+      fixture.detectChanges();
+      const mine = {
+        ...detailWithReserves,
+        reserves: [
+          {
+            ...detailWithReserves.reserves[1],
+            history: [{ ...detailWithReserves.reserves[1].history[0], submittedByUserId: 'user-1' }]
+          }
+        ]
+      };
+      flushInitialRequests(mine);
+      fixture.detectChanges();
+
+      openReservesTab();
+
+      const retractButton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+        (b) => (b as HTMLButtonElement).textContent?.trim() === 'Retract'
+      ) as HTMLButtonElement;
+      expect(retractButton).toBeDefined();
+
+      retractButton.click();
+      fixture.detectChanges();
+
+      const retractReq = httpMock.expectOne(`${baseUrl}/${claimId}/reserves/history-2/retract`);
+      expect(retractReq.request.method).toBe('POST');
+      retractReq.flush({ reserveComponentId: 'reserve-2', reserveHistoryId: 'history-2', currentAmount: 0 });
+
+      httpMock.expectOne(`${baseUrl}/${claimId}`).flush(detail);
+      httpMock.expectOne((r) => r.url === `${baseUrl}/${claimId}/audit`).flush(auditPage);
+      flush(); // clears the snack bar's auto-dismiss timer
+    }));
+
+    it('opens the Add Reserve dialog and submits a new reserve, then reloads the claim', fakeAsync(() => {
+      seedUser('Handler');
+      setup();
+      tick();
+      fixture.detectChanges();
+      flushInitialRequests();
+      fixture.detectChanges();
+
+      openReservesTab();
+
+      const addButton = Array.from(fixture.nativeElement.querySelectorAll('button')).find(
+        (b) => (b as HTMLButtonElement).textContent?.trim() === 'Add Reserve'
+      ) as HTMLButtonElement;
+      addButton.click();
+      fixture.detectChanges();
+      tick();
+      fixture.detectChanges();
+
+      const dialogRoot = overlayContainer.getContainerElement();
+      const amountInput = dialogRoot.querySelector('input[type="number"]') as HTMLInputElement;
+      amountInput.value = '5000';
+      amountInput.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+
+      const submitButton = dialogRoot.querySelector('button[mat-raised-button]') as HTMLButtonElement;
+      submitButton.click();
+      fixture.detectChanges();
+      tick();
+
+      const postReq = httpMock.expectOne(`${baseUrl}/${claimId}/reserves`);
+      expect(postReq.request.method).toBe('POST');
+      expect(postReq.request.body).toEqual({ componentType: 'Indemnity', amount: 5000, changeReason: null });
+      postReq.flush({
+        reserveComponentId: 'reserve-1',
+        reserveHistoryId: 'history-1',
+        componentType: 'Indemnity',
+        transactionType: 'Add',
+        amount: 5000,
+        previousBalance: 0,
+        newBalance: 5000,
+        approvalStatus: 'AutoApproved',
+        currentAmount: 5000,
+        changeSequence: 1
+      });
+
+      httpMock.expectOne(`${baseUrl}/${claimId}`).flush(detailWithReserves);
+      httpMock.expectOne((r) => r.url === `${baseUrl}/${claimId}/audit`).flush(auditPage);
+      flush(); // clears the snack bar's auto-dismiss timer
+    }));
+
+    it('shows the pending-approval closure condition as unmet when a reserve is PendingApproval', async () => {
+      seedUser('Supervisor');
+      await setup();
+      fixture.detectChanges();
+      flushInitialRequests(detailWithReserves);
+      fixture.detectChanges();
+
+      fixture.componentInstance.requestTransition('Closed');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const dialogText = overlayContainer.getContainerElement().textContent ?? '';
+      expect(dialogText).toContain('No reserve components are pending approval');
+
+      const confirmButton = overlayContainer.getContainerElement().querySelector('button[mat-raised-button]') as HTMLButtonElement;
+      expect(confirmButton.disabled).toBe(true);
+    });
+
+    describe('Ticket 08: approve/reject', () => {
+      function reserveButtons(label: string): HTMLButtonElement[] {
+        return Array.from(fixture.nativeElement.querySelectorAll('button')).filter(
+          (b) => (b as HTMLButtonElement).textContent?.trim() === label
+        ) as HTMLButtonElement[];
+      }
+
+      it('hides Approve and Reject for a Handler role', fakeAsync(() => {
+        seedUser('Handler');
+        setup();
+        tick();
+        fixture.detectChanges();
+        flushInitialRequests(detailWithReserves);
+        fixture.detectChanges();
+
+        openReservesTab();
+
+        expect(reserveButtons('Approve').length).toBe(0);
+        expect(reserveButtons('Reject').length).toBe(0);
+      }));
+
+      it('shows Approve and Reject for a Supervisor who did not submit the transaction', fakeAsync(() => {
+        seedUser('Supervisor'); // userId: 'user-1'; history-2 was submitted by 'someone-else'
+        setup();
+        tick();
+        fixture.detectChanges();
+        flushInitialRequests(detailWithReserves);
+        fixture.detectChanges();
+
+        openReservesTab();
+
+        expect(reserveButtons('Approve').length).toBe(1);
+        expect(reserveButtons('Reject').length).toBe(1);
+      }));
+
+      it('hides Approve (but still shows Reject) for a Supervisor who submitted the transaction themselves', fakeAsync(() => {
+        seedUser('Supervisor');
+        setup();
+        tick();
+        fixture.detectChanges();
+        const mine = {
+          ...detailWithReserves,
+          reserves: [
+            {
+              ...detailWithReserves.reserves[1],
+              history: [{ ...detailWithReserves.reserves[1].history[0], submittedByUserId: 'user-1' }]
+            }
+          ]
+        };
+        flushInitialRequests(mine);
+        fixture.detectChanges();
+
+        openReservesTab();
+
+        expect(reserveButtons('Approve').length).toBe(0);
+        expect(reserveButtons('Reject').length).toBe(1);
+      }));
+
+      it('clicking Approve posts to the approve endpoint without the override flag, then reloads the claim', fakeAsync(() => {
+        seedUser('Supervisor');
+        setup();
+        tick();
+        fixture.detectChanges();
+        flushInitialRequests(detailWithReserves);
+        fixture.detectChanges();
+
+        openReservesTab();
+        reserveButtons('Approve')[0].click();
+        fixture.detectChanges();
+
+        const approveReq = httpMock.expectOne(`${baseUrl}/${claimId}/reserves/history-2/approve`);
+        expect(approveReq.request.method).toBe('POST');
+        expect(approveReq.request.body).toEqual({ overrideAggregateCap: false });
+        approveReq.flush({ reserveComponentId: 'reserve-2', reserveHistoryId: 'history-2', approvalStatus: 'Approved', currentAmount: 50000 });
+
+        httpMock.expectOne(`${baseUrl}/${claimId}`).flush(detail);
+        httpMock.expectOne((r) => r.url === `${baseUrl}/${claimId}/audit`).flush(auditPage);
+        flush(); // clears the snack bar's auto-dismiss timer
+      }));
+
+      it('clicking Reject requires a reason, then posts it to the reject endpoint and reloads the claim', fakeAsync(() => {
+        seedUser('Supervisor');
+        setup();
+        tick();
+        fixture.detectChanges();
+        flushInitialRequests(detailWithReserves);
+        fixture.detectChanges();
+
+        openReservesTab();
+        reserveButtons('Reject')[0].click();
+        fixture.detectChanges();
+        tick();
+        fixture.detectChanges();
+
+        const dialogRoot = overlayContainer.getContainerElement();
+        const confirmButton = dialogRoot.querySelector('button[mat-raised-button]') as HTMLButtonElement;
+        expect(confirmButton.disabled).toBe(true);
+
+        const textarea = dialogRoot.querySelector('textarea') as HTMLTextAreaElement;
+        textarea.value = 'Amount not substantiated';
+        textarea.dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        expect(confirmButton.disabled).toBe(false);
+
+        confirmButton.click();
+        fixture.detectChanges();
+        tick();
+        fixture.detectChanges();
+
+        const rejectReq = httpMock.expectOne(`${baseUrl}/${claimId}/reserves/history-2/reject`);
+        expect(rejectReq.request.method).toBe('POST');
+        expect(rejectReq.request.body).toEqual({ rejectionReason: 'Amount not substantiated' });
+        rejectReq.flush({ reserveComponentId: 'reserve-2', reserveHistoryId: 'history-2', approvalStatus: 'Rejected' });
+
+        httpMock.expectOne(`${baseUrl}/${claimId}`).flush(detail);
+        httpMock.expectOne((r) => r.url === `${baseUrl}/${claimId}/audit`).flush(auditPage);
+        flush(); // clears the snack bar's auto-dismiss timer
+      }));
     });
   });
 });

@@ -13,7 +13,8 @@ namespace ClaimsModule.Api.IntegrationTests;
 /// wiring per spec.md's Testing Decisions — the pure transition-validation branching itself is
 /// covered by ClaimsModule.Domain.UnitTests' narrow Claim-only seam instead.
 /// </summary>
-public class ClaimStatusTransitionTests(ApiWebApplicationFactory factory) : IClassFixture<ApiWebApplicationFactory>
+[Collection(ApiTestCollection.Name)]
+public class ClaimStatusTransitionTests(ApiWebApplicationFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
 
