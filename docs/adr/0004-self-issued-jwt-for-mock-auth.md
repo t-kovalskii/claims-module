@@ -1,0 +1,5 @@
+# Self-issued, validated JWT for mock authentication
+
+The spec allows a "hardcoded mock auth service" and only requires the Angular HTTP interceptor to attach a Bearer token and the UI to gate on role. We decided the backend still issues and validates a real JWT: `POST /api/auth/login` takes a username matching a seeded handler/supervisor/manager user (no real password check) and returns a JWT signed with a key from `appsettings`, carrying role and `OrganizationEntityId` claims. Standard ASP.NET Core JWT bearer middleware validates it, and `[Authorize(Roles = "...")]` enforces reserve-approval access server-side.
+
+Only the identity-proofing step is mocked (no real SSO/password verification) — the authorization mechanism itself is real. BR-R-03/04's authority checks and the `RequiredPermission` column on status transitions need a role signal the server actually trusts; a purely client-side fake token (with the backend trusting some other signal, e.g. a header) can't provide that, and would leave every role-gated endpoint forgeable by anyone who can set a request header.
