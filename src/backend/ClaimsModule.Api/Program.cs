@@ -27,11 +27,17 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-const string AngularDevClientPolicy = "AngularDevClient";
+const string AngularClientPolicy = "AngularClient";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (builder.Environment.IsDevelopment())
+{
+    allowedOrigins = [.. allowedOrigins, "http://localhost:4200"];
+}
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(AngularDevClientPolicy, policy =>
-        policy.WithOrigins("http://localhost:4200")
+    options.AddPolicy(AngularClientPolicy, policy =>
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -87,19 +93,15 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Claims Module API v1"));
-}
+// Ticket 11: Swagger stays on in every environment (not gated to Development) because the
+// deployed instance's Swagger UI is one of the assessment's public deliverables.
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Claims Module API v1"));
 
 app.UseHttpsRedirection();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors(AngularDevClientPolicy);
-}
+app.UseCors(AngularClientPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
