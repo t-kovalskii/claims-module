@@ -65,7 +65,7 @@ jobs:
       resourceGroupName: ${{ steps.deploy.outputs.resourceGroupName }}
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/login@v2
+      - uses: ./.github/actions/azure-login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -108,7 +108,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: dotnet publish ClaimsModule.Api/ClaimsModule.Api.csproj -c Release -o ../../publish_output
         working-directory: src/backend
-      - uses: azure/login@v2
+      - uses: ./.github/actions/azure-login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -144,7 +144,7 @@ jobs:
         with:
           name: frontend-dist
           path: frontend-dist
-      - uses: azure/login@v2
+      - uses: ./.github/actions/azure-login
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}

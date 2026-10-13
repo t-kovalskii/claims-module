@@ -8,7 +8,7 @@ param sqlConnectionString string
 param jwtSecretKey string
 @secure()
 param storageConnectionString string
-param corsAllowedOrigins array = []
+param corsAllowedOrigin string = ''
 
 var planName = 'plan-claimsmodule-${environmentName}'
 var appName = 'app-claimsmodule-api-${environmentName}-${uniqueSuffix}'
@@ -48,7 +48,7 @@ resource api 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'Storage__Provider', value: 'AzureBlob' }
         { name: 'Storage__AzureBlob__ConnectionString', value: storageConnectionString }
         { name: 'Storage__AzureBlob__ContainerName', value: 'claim-documents' }
-        { name: 'Cors__AllowedOrigins__0', value: length(corsAllowedOrigins) > 0 ? corsAllowedOrigins[0] : '' }
+        { name: 'Cors__AllowedOrigins__0', value: corsAllowedOrigin }
       ]
     }
   }
