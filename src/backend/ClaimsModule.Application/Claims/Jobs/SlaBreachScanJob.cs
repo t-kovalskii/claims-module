@@ -30,9 +30,6 @@ public class SlaBreachScanJob(IApplicationDbContext context, IDateTime dateTime)
         var staleCutoff = utcNow - StaleThreshold;
         var throttleCutoff = utcNow - ThrottleWindow;
 
-        // LastModifiedAt is only stamped by AuditableEntitySaveChangesInterceptor once a claim
-        // is actually modified post-creation (Ticket 01) — a never-touched claim still has it
-        // null, so "last touched" falls back to CreatedAt.
         var staleClaims = await context.Claims
             .AsNoTracking()
             .Where(c => c.Status == ClaimStatus.Draft || c.Status == ClaimStatus.Open)

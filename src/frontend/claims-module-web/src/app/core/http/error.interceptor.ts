@@ -5,6 +5,12 @@ import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 
+/** Shape of the API's RFC 7807 ProblemDetails body (see GlobalExceptionHandler). */
+interface ApiProblemDetails {
+  detail?: string;
+  unmetConditions?: string[];
+}
+
 /** Turns a failed API call into a user-friendly snackbar instead of a silent failure. */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const snackBar = inject(MatSnackBar);
@@ -23,8 +29,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           router.navigate(['/login']);
           snackBar.open('Your session has expired. Please log in again.', 'Dismiss', { duration: 6000 });
         } else {
-          const detail = typeof error.error?.detail === 'string' ? error.error.detail : error.message;
-          snackBar.open(`Something went wrong: ${detail}`, 'Dismiss', { duration: 6000 });
+          const body = error.error as ApiProblemDetails | null;
+          const detail = typeof body?.detail === 'string' ? body.detail : error.message;
+          const message = body?.unmetConditions?.length
+            ? `${detail} (${body.unmetConditions.join('; ')})`
+            : detail;
+          snackBar.open(`Something went wrong: ${message}`, 'Dismiss', { duration: 6000 });
         }
       }
 
