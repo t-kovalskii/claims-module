@@ -43,8 +43,13 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
     }
 
     /// <summary>Belt-and-suspenders on top of the container's own wait strategy: retries an actual
-    /// ADO.NET connection against the published port until it succeeds, since the log-line signal
-    /// above has been observed to fire before Docker's host-side port mapping is reliably up.</summary>
+    /// query against the published port until it succeeds, since the log-line signal above has
+    /// been observed to fire before Docker's host-side port mapping is reliably up — and, on
+    /// GitHub-hosted runners, a bare open/close (the previous check here) can itself succeed
+    /// during SQL Server's narrow window of accepting TCP connections before its login/TDS
+    /// handshake is actually serving queries, which then made EF Core's first real command
+    /// (the startup migration) fail moments later. Running SELECT 1 exercises that same
+    /// handshake, so success here means the server is actually ready, not just listening.</summary>
     private async Task WaitForTcpConnectionAsync()
     {
         var deadline = DateTime.UtcNow.AddSeconds(90);
@@ -56,6 +61,9 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
             {
                 await using var connection = new SqlConnection($"{_sqlContainer.GetConnectionString()};TrustServerCertificate=True;Connect Timeout=5");
                 await connection.OpenAsync();
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT 1";
+                await command.ExecuteScalarAsync();
                 return;
             }
             catch (Exception ex)

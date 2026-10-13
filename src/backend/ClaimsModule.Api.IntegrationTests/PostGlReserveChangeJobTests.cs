@@ -5,6 +5,7 @@ using ClaimsModule.Application.Claims.Queries.GetClaimAuditLog;
 using ClaimsModule.Application.Claims.Queries.GetClaimById;
 using ClaimsModule.Application.Common.Models;
 using ClaimsModule.Application.Claims.Commands.SubmitReserveTransaction;
+using ClaimsModule.Application.Policies.Queries.SearchPolicies;
 using ClaimsModule.Application.Reference.Queries.GetCauseOfLossCodes;
 using ClaimsModule.Domain.Entities;
 using ClaimsModule.Persistence;
@@ -32,12 +33,20 @@ public class PostGlReserveChangeJobTests(ApiWebApplicationFactory factory)
             .Content.ReadFromJsonAsync<List<CauseOfLossCodeDto>>())!
         .Single(c => c.Code == "COL-FIRE").Id;
 
+    private async Task<Guid> GetActivePolicyIdAsync()
+    {
+        var response = await _client.GetAsync("/api/policies/search?q=POL-2024-001001");
+        var policies = await response.Content.ReadFromJsonAsync<List<PolicySummaryDto>>();
+        return policies!.Single(p => p.PolicyNumber == "POL-2024-001001").Id;
+    }
+
     private async Task<Guid> CreateClaimWithAutoApprovedReserveAsync()
     {
         var causeId = await GetActiveCauseOfLossCodeIdAsync();
+        var policyId = await GetActivePolicyIdAsync();
         var response = await _client.PostAsJsonAsync("/api/claims", new
         {
-            policyId = (Guid?)null,
+            policyId,
             lossEvent = new
             {
                 lossDate = DateTimeOffset.UtcNow.AddDays(-2),
