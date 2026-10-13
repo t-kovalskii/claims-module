@@ -6,6 +6,7 @@ using ClaimsModule.Infrastructure;
 using ClaimsModule.Persistence;
 using Hangfire;
 using Hangfire.SqlServer;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -112,7 +113,25 @@ app.MapHangfireDashboard("/hangfire");
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await context.Database.MigrateAsync();
+
+    // This is the very first connection the app makes, so it's the one most exposed to a
+    // database that's up but not yet actually accepting logins — a cold Azure SQL instance,
+    // or (observed under GitHub Actions' Testcontainers-backed integration tests) a container
+    // whose published port briefly accepts TCP before its TDS handshake is really serving
+    // queries. A handful of retries here costs nothing once the database is healthy.
+    for (var attempt = 1; ; attempt++)
+    {
+        try
+        {
+            await context.Database.MigrateAsync();
+            break;
+        }
+        catch (SqlException) when (attempt < 5)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
+        }
+    }
+
     await ApplicationDbContextSeeder.SeedAsync(context);
     await ReferenceDataSeeder.SeedAsync(context);
 }
