@@ -4,7 +4,7 @@ targetScope = 'subscription'
 param environmentName string = 'prod'
 
 @description('Azure region for all resources')
-param location string = 'eastus2'
+param location string = 'centralus'
 
 param sqlAdministratorLogin string = 'claimsadmin'
 
@@ -15,11 +15,16 @@ param sqlAdministratorLoginPassword string
 param jwtSecretKey string
 
 var resourceGroupName = 'rg-claimsmodule-${environmentName}'
-var uniqueSuffix = take(uniqueString(subscription().id, environmentName), 6)
+var uniqueSuffix = take(uniqueString(subscription().id, environmentName, location), 6)
 
+// A resource group's own location is immutable once created and otherwise unrelated to where
+// its resources live — pinned independently of `location` (which drives where the actual
+// billable resources go, and may need to change if a region rejects provisioning for this
+// subscription) so re-running this template against a new region doesn't try to "move" the
+// already-existing resource group and fail with InvalidResourceGroupLocation.
 resource rg 'Microsoft.Resources/resourceGroups@2023-07-01' = {
   name: resourceGroupName
-  location: location
+  location: 'eastus2'
 }
 
 module resources 'resources.bicep' = {

@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  AZURE_LOCATION: eastus2
+  AZURE_LOCATION: centralus
   ENVIRONMENT_NAME: prod
   DOTNET_VERSION: '9.0.x'
   NODE_VERSION: '20'
