@@ -84,9 +84,11 @@ jobs:
                          jwtSecretKey="${{ secrets.JWT_SECRET_KEY }}" \
             --query properties.outputs -o json > outputs.json
 
+          # None of these are secrets (resource/app names and hostnames) — masking them makes
+          # GitHub Actions silently drop them from job outputs ("Skip output ... since it may
+          # contain secret"), which broke every downstream job that consumes them.
           for key in resourceGroupName backendAppName backendHostName staticWebAppName staticWebAppHostName sqlServerFqdn storageAccountName; do
             value=$(jq -r ".${key}.value" outputs.json)
-            echo "::add-mask::$value"
             echo "${key}=${value}" >> "$GITHUB_OUTPUT"
           done
       - name: Point backend CORS at the deployed Static Web App origin

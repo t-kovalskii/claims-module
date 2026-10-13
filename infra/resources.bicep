@@ -56,6 +56,7 @@ module staticWebApp 'modules/staticwebapp.bicep' = {
 // follow-up step once staticWebAppHostName below is known, not inside this same deployment.
 output backendHostName string = appService.outputs.defaultHostName
 output backendAppName string = appService.outputs.appName
+output staticWebAppName string = staticWebApp.outputs.staticWebAppName
 output staticWebAppHostName string = staticWebApp.outputs.defaultHostname
 output sqlServerFqdn string = sql.outputs.sqlServerFqdn
 output storageAccountName string = storage.outputs.storageAccountName

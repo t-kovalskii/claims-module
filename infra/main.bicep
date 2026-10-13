@@ -43,6 +43,7 @@ module resources 'resources.bicep' = {
 output resourceGroupName string = resourceGroupName
 output backendHostName string = resources.outputs.backendHostName
 output backendAppName string = resources.outputs.backendAppName
+output staticWebAppName string = resources.outputs.staticWebAppName
 output staticWebAppHostName string = resources.outputs.staticWebAppHostName
 output sqlServerFqdn string = resources.outputs.sqlServerFqdn
 output storageAccountName string = resources.outputs.storageAccountName
