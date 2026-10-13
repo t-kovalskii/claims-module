@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AZURE_LOCATION: eastus2
   ENVIRONMENT_NAME: prod
@@ -58,7 +62,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Deploy Bicep (infrastructure, idempotent)
         id: deploy
         run: |
@@ -97,7 +103,9 @@ jobs:
         working-directory: src/backend
       - uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ needs.provision-infra.outputs.backendAppName }}
@@ -131,7 +139,9 @@ jobs:
           path: frontend-dist
       - uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Fetch Static Web App deployment token
         id: swa-token
         run: |
